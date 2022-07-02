@@ -1,0 +1,17 @@
+[package]
+name = "yspace2"
+version = "0.1.0"
+authors = ["Andrew Archibald <andrew@aarchibald.com>"]
+edition = "2021"
+description = "Toolchain for the Whitespace programming language"
+readme = "README.md"
+homepage = "https://github.com/andrewarchi/yspace2"
+repository = "https://github.com/andrewarchi/yspace2"
+license = "LGPL-3.0-or-later"
+keywords = ["whitespace", "compiler"]
+categories = ["compilers"]
+
+[dependencies]
+
+[profile.release]
+lto = true
