@@ -12,6 +12,7 @@ keywords = ["whitespace", "compiler"]
 categories = ["compilers"]
 
 [dependencies]
+enumset = { version = "1.0.11", features = ["std"] }
 
 [profile.release]
 lto = true

@@ -6,15 +6,17 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
-#![feature(const_trait_impl, inline_const)]
-#![allow(dead_code)]
+use crate::ws::inst::Inst;
 
-pub mod ws {
-    pub mod inst;
-    pub mod parse;
-    pub mod token;
+pub struct Parser {}
 
-    pub use inst::Inst;
-    pub use parse::Parser;
-    pub use token::Token;
+impl Parser {
+    #[inline]
+    pub const fn new() -> Self {
+        Parser {}
+    }
+
+    pub fn register(&mut self, _id: usize, _handle: Box<dyn Fn(&mut Parser) -> Option<Inst>>) {
+        todo!();
+    }
 }
