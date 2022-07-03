@@ -15,6 +15,5 @@ pub mod ws {
     pub mod token;
 
     pub use inst::Inst;
-    pub use parse::Parser;
     pub use token::Token;
 }

@@ -10,7 +10,7 @@ use enumset::{EnumSet, EnumSetType};
 use paste::paste;
 use std::fmt::{self, Display, Formatter};
 
-use crate::ws::parse::Parser;
+use crate::ws::parse::{ParseTable, ParserError};
 use crate::ws::token::{Token::*, TokenSeq};
 
 #[derive(Clone, Debug)]
@@ -20,13 +20,13 @@ pub struct Int {}
 pub struct Uint {}
 
 impl Int {
-    pub fn parse(_p: &mut Parser) -> Option<Int> {
+    pub fn parse(_p: &mut ParseTable) -> Option<Int> {
         todo!();
     }
 }
 
 impl Uint {
-    pub fn parse(_p: &mut Parser) -> Option<Uint> {
+    pub fn parse(_p: &mut ParseTable) -> Option<Uint> {
         todo!();
     }
 }
@@ -109,7 +109,7 @@ macro_rules! insts {
             };
 
             #[inline]
-            pub fn parse_arg(&self, parser: &mut Parser) -> Option<Inst> {
+            pub fn parse_arg(&self, parser: &mut ParseTable) -> Option<Inst> {
                 match self {
                     $(Opcode::$opcode => Some(Inst::$opcode $(($arg::parse(parser)?))?)),+
                 }
@@ -125,11 +125,11 @@ macro_rules! insts {
             }
         }
 
-        impl Parser {
-            pub fn new() -> Self {
-                let mut parser = Parser::with_len(Opcode::MAX_SEQ.0 + 1);
-                $(parser.register(&[$($seq),+], Opcode::$opcode);)+
-                parser
+        impl ParseTable {
+            pub fn new() -> Result<Self, ParserError> {
+                let mut parser = ParseTable::with_len(Opcode::MAX_SEQ.0 as usize + 1);
+                $(parser.insert(&[$($seq),+], Opcode::$opcode)?;)+
+                Ok(parser)
             }
         }
     }

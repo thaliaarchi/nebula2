@@ -7,10 +7,10 @@
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
 use crate::ws::inst::Opcode;
-use crate::ws::token::Token;
+use crate::ws::token::{Token, TokenSeq};
 
 #[derive(Clone, Debug)]
-pub struct Parser {
+pub struct ParseTable {
     entries: Vec<ParseEntry>,
 }
 
@@ -22,14 +22,49 @@ enum ParseEntry {
     Terminal(Opcode),
 }
 
-impl Parser {
+#[derive(Clone, Debug)]
+pub enum ParserError {
+    Conflict { seq: TokenSeq, opcodes: Vec<Opcode> },
+    EmptyTokenSeq,
+}
+
+impl ParseTable {
     pub fn with_len(len: usize) -> Self {
         let mut entries = Vec::new();
         entries.resize(len, ParseEntry::None);
-        Parser { entries }
+        ParseTable { entries }
     }
 
-    pub fn register(&mut self, _toks: &[Token], _opcode: Opcode) {
-        todo!();
+    pub fn insert(&mut self, toks: &[Token], opcode: Opcode) -> Result<(), ParserError> {
+        if toks.len() == 0 {
+            return Err(ParserError::EmptyTokenSeq);
+        }
+        let mut seq = TokenSeq::new();
+        for &tok in toks {
+            let entry = &mut self.entries[seq.0];
+            match entry {
+                ParseEntry::None => *entry = ParseEntry::Prefix(vec![opcode]),
+                ParseEntry::Prefix(opcodes) => opcodes.push(opcode),
+                ParseEntry::Terminal(terminal) => {
+                    let opcodes = vec![*terminal, opcode];
+                    return Err(ParserError::Conflict { seq, opcodes });
+                }
+            }
+            seq = seq.push(tok);
+        }
+        let entry = &mut self.entries[seq.0];
+        match entry {
+            ParseEntry::None => *entry = ParseEntry::Terminal(opcode),
+            ParseEntry::Prefix(opcodes) => {
+                let mut opcodes = opcodes.clone();
+                opcodes.push(opcode);
+                return Err(ParserError::Conflict { seq, opcodes });
+            }
+            ParseEntry::Terminal(terminal) => {
+                let opcodes = vec![*terminal, opcode];
+                return Err(ParserError::Conflict { seq, opcodes });
+            }
+        }
+        Ok(())
     }
 }
