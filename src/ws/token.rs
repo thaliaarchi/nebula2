@@ -44,12 +44,21 @@ impl TokenMapping {
     }
 
     #[inline]
-    pub const fn map(&self, c: char) -> Option<Token> {
+    pub const fn map_char(&self, c: char) -> Option<Token> {
         match c {
             _ if c == self.S => Some(S),
             _ if c == self.T => Some(T),
             _ if c == self.L => Some(L),
             _ => None,
+        }
+    }
+
+    #[inline]
+    pub const fn map_token(&self, tok: Token) -> char {
+        match tok {
+            S => self.S,
+            T => self.T,
+            L => self.L,
         }
     }
 }
