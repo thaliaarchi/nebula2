@@ -95,19 +95,6 @@ macro_rules! insts {
                 $(TokenSeq::from_tokens(&[$($seq),+])),+
             ];
 
-            const MAX_SEQ: TokenSeq = {
-                let mut max = Opcode::SEQS[0];
-                let mut i = 1;
-                while i < Opcode::SEQS.len() {
-                    // TODO: derived PartialOrd is not const
-                    if Opcode::SEQS[i].0 > max.0 {
-                        max = Opcode::SEQS[i];
-                    }
-                    i += 1;
-                }
-                max
-            };
-
             #[inline]
             pub fn parse_arg(&self, parser: &mut ParseTable) -> Option<Inst> {
                 match self {
@@ -126,10 +113,9 @@ macro_rules! insts {
         }
 
         impl ParseTable {
-            pub fn new() -> Result<Self, ParserError> {
-                let mut parser = ParseTable::with_len(Opcode::MAX_SEQ.0 as usize + 1);
-                $(parser.insert(&[$($seq),+], Opcode::$opcode)?;)+
-                Ok(parser)
+            pub fn insert_insts(&mut self) -> Result<(), ParserError> {
+                $(self.insert(&[$($seq),+], Opcode::$opcode)?;)+
+                Ok(())
             }
         }
     }

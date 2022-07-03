@@ -6,16 +6,19 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
+use std::collections::HashMap;
+
 use crate::ws::inst::Opcode;
-use crate::ws::token::{Token, TokenSeq};
+use crate::ws::token::{Token, Token::*, TokenSeq};
 
 #[derive(Clone, Debug)]
 pub struct ParseTable {
-    entries: Vec<ParseEntry>,
+    dense: Box<[ParseEntry; Self::DENSE_LEN]>,
+    sparse: HashMap<TokenSeq, ParseEntry>,
 }
 
 #[derive(Clone, Debug, Default)]
-enum ParseEntry {
+pub enum ParseEntry {
     #[default]
     None,
     Prefix(Vec<Opcode>),
@@ -29,10 +32,30 @@ pub enum ParserError {
 }
 
 impl ParseTable {
-    pub fn with_len(len: usize) -> Self {
-        let mut entries = Vec::new();
-        entries.resize(len, ParseEntry::None);
-        ParseTable { entries }
+    const DENSE_MAX: TokenSeq = TokenSeq::from_tokens(&[L, L, L]);
+    const DENSE_LEN: usize = Self::DENSE_MAX.as_usize() + 1;
+
+    pub fn new() -> Self {
+        ParseTable {
+            dense: Box::new([const { ParseEntry::None }; Self::DENSE_LEN]),
+            sparse: HashMap::new(),
+        }
+    }
+
+    pub fn get(&self, seq: TokenSeq) -> &ParseEntry {
+        if seq <= Self::DENSE_MAX {
+            &self.dense[seq.as_usize()]
+        } else {
+            &self.sparse[&seq]
+        }
+    }
+
+    pub fn get_mut(&mut self, seq: TokenSeq) -> &mut ParseEntry {
+        if seq <= Self::DENSE_MAX {
+            &mut self.dense[seq.as_usize()]
+        } else {
+            self.sparse.entry(seq).or_default()
+        }
     }
 
     pub fn insert(&mut self, toks: &[Token], opcode: Opcode) -> Result<(), ParserError> {
@@ -41,7 +64,7 @@ impl ParseTable {
         }
         let mut seq = TokenSeq::new();
         for &tok in toks {
-            let entry = &mut self.entries[seq.0 as usize];
+            let entry = self.get_mut(seq);
             match entry {
                 ParseEntry::None => *entry = ParseEntry::Prefix(vec![opcode]),
                 ParseEntry::Prefix(opcodes) => opcodes.push(opcode),
@@ -52,7 +75,7 @@ impl ParseTable {
             }
             seq = seq.push(tok);
         }
-        let entry = &mut self.entries[seq.0 as usize];
+        let entry = self.get_mut(seq);
         match entry {
             ParseEntry::None => *entry = ParseEntry::Terminal(opcode),
             ParseEntry::Prefix(opcodes) => {
