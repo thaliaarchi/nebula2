@@ -41,7 +41,7 @@ impl ParseTable {
         }
         let mut seq = TokenSeq::new();
         for &tok in toks {
-            let entry = &mut self.entries[seq.0];
+            let entry = &mut self.entries[seq.0 as usize];
             match entry {
                 ParseEntry::None => *entry = ParseEntry::Prefix(vec![opcode]),
                 ParseEntry::Prefix(opcodes) => opcodes.push(opcode),
@@ -52,7 +52,7 @@ impl ParseTable {
             }
             seq = seq.push(tok);
         }
-        let entry = &mut self.entries[seq.0];
+        let entry = &mut self.entries[seq.0 as usize];
         match entry {
             ParseEntry::None => *entry = ParseEntry::Terminal(opcode),
             ParseEntry::Prefix(opcodes) => {

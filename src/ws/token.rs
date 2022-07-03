@@ -17,7 +17,7 @@ pub enum Token {
 
 impl Token {
     #[inline]
-    const fn from_usize(n: usize) -> Self {
+    const fn from_u16(n: u16) -> Self {
         match n {
             0 => S,
             1 => T,
@@ -62,11 +62,9 @@ impl const Default for TokenMapping {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TokenSeq(pub usize);
+pub struct TokenSeq(pub u16);
 
 impl TokenSeq {
-    pub const MAX_TOKENS: usize = 5;
-
     #[inline]
     pub const fn new() -> Self {
         TokenSeq(0)
@@ -74,19 +72,19 @@ impl TokenSeq {
 
     #[inline]
     pub const fn push(&self, tok: Token) -> TokenSeq {
-        TokenSeq(self.0 * 3 + tok as usize + 1)
+        TokenSeq(self.0 * 3 + tok as u16 + 1)
     }
 
     #[inline]
     pub const fn pop(&self) -> (TokenSeq, Token) {
         (
             TokenSeq((self.0 - 1) / 3),
-            Token::from_usize((self.0 - 1) % 3),
+            Token::from_u16((self.0 - 1) % 3),
         )
     }
 
     #[inline]
-    pub const fn len(&self) -> usize {
+    pub const fn len(&self) -> u16 {
         let mut seq = self.0;
         let mut len = 0;
         while seq != 0 {
@@ -109,16 +107,14 @@ impl TokenSeq {
 
     // TODO: make an inline, fixed-capacity container type with const methods
     #[inline]
-    pub const fn to_tokens(&self) -> ([Token; Self::MAX_TOKENS], usize) {
+    pub fn to_tokens(&self) -> Vec<Token> {
         let mut seq = *self;
-        let mut toks = [Token::S; Self::MAX_TOKENS];
-        let len = seq.len();
-        let mut i = len;
-        while i != 0 {
-            i -= 1;
+        let len = seq.len() as usize;
+        let mut toks = vec![S; len];
+        for i in (0..len).rev() {
             (seq, toks[i]) = seq.pop();
         }
-        (toks, len)
+        toks
     }
 }
 
@@ -143,11 +139,11 @@ mod test {
             [L S S], [L S T], [L S L], [L T S], [L T T], [L T L], [L L S], [L L T], [L L L],
         ];
         for (i, &toks) in seqs.iter().enumerate() {
-            let seq = TokenSeq(i);
+            let seq = TokenSeq(i as u16);
             let seq2 = TokenSeq::from_tokens(toks);
             assert_eq!(seq, seq2, "TokenSeq::from_tokens({:?})", toks);
-            let (toks2, len) = seq.to_tokens();
-            assert_eq!(toks, &toks2[..len], "{:?}.to_tokens()", seq);
+            let toks2 = seq.to_tokens();
+            assert_eq!(toks, toks2, "{:?}.to_tokens()", seq);
         }
     }
 }
