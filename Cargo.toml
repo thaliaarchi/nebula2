@@ -14,6 +14,7 @@ categories = ["compilers"]
 
 [dependencies]
 enumset = { version = "1.0.11", features = ["std"] }
+paste = "1.0.7"
 
 [profile.release]
 lto = true

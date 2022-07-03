@@ -7,6 +7,7 @@
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
 use enumset::{EnumSet, EnumSetType};
+use paste::paste;
 
 use crate::ws::parse::Parser;
 use crate::ws::token::{Token, Token::*, TokenSeq};
@@ -39,11 +40,27 @@ pub enum Feature {
     DumpTrace,
 }
 
+macro_rules! match_optional(
+    ($optional:expr, $($then:expr)?, $else:expr) => { $($then)? };
+    ( , $($then:expr)?, $else:expr) => { $else };
+);
+
 macro_rules! insts {
     ($([$($seq:expr)+ $(; $arg:ident)?] $(if $feature:ident)? => $opcode:ident),+$(,)?) => {
         #[derive(Clone, Debug)]
         pub enum Inst {
             $($opcode $(($arg))?),+
+        }
+
+        impl Inst {
+            #[inline]
+            pub fn opcode(&self) -> Opcode {
+                paste! {
+                    match self {
+                        $(Inst::$opcode $(([<_ $arg:snake>]))? => Opcode::$opcode),+
+                    }
+                }
+            }
         }
 
         #[repr(u8)]
@@ -57,6 +74,14 @@ macro_rules! insts {
             pub fn parse_arg(&self, parser: &mut Parser) -> Option<Inst> {
                 match self {
                     $(Opcode::$opcode => Some(Inst::$opcode $(($arg::parse(parser)?))?)),+
+                }
+            }
+
+            #[inline]
+            pub fn feature(&self) -> Option<Feature> {
+                match self {
+                    $(Opcode::$opcode =>
+                        match_optional!($($feature)?, $(Some(Feature::$feature))?, None)),+
                 }
             }
         }
