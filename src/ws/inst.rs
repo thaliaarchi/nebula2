@@ -10,9 +10,12 @@ use enumset::{EnumSet, EnumSetType};
 
 use self::Inst::*;
 use crate::ws::parse::Parser;
-use crate::ws::token::Token::{self, *};
+use crate::ws::token::Token::*;
 
+#[derive(Clone, Debug)]
 pub struct Int {}
+
+#[derive(Clone, Debug)]
 pub struct Uint {}
 
 impl Int {
@@ -76,7 +79,7 @@ macro_rules! parser(
             let mut parser = $crate::ws::parse::Parser::new();
             $(if true $(&& features.contains($crate::ws::inst::Feature::$feature))? {
                 parser.register(
-                    const { $crate::ws::inst::Inst::id(&[$($seq),+]) },
+                    const { $crate::ws::token::TokenSeq::from_tokens(&[$($seq),+]) },
                     Box::new(|_p| Some($inst $(($arg::parse(_p)?))?)),
                 );
             })+
@@ -117,26 +120,5 @@ impl Parser {
             [L L S S T] if DumpStackHeap => DumpHeap,
             [L L T] if DumpTrace => DumpTrace,
         })
-    }
-}
-
-impl Inst {
-    #[inline]
-    pub const fn id(seq: &[Token]) -> usize {
-        if seq.len() == 0 {
-            panic!("empty seq");
-        }
-        let mut id: usize = 1;
-        let mut i: usize = 0;
-        while i < seq.len() {
-            id *= 3;
-            id += match seq[i] {
-                S => 0,
-                T => 1,
-                L => 2,
-            };
-            i += 1;
-        }
-        id - 3
     }
 }

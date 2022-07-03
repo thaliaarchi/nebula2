@@ -7,16 +7,27 @@
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
 use crate::ws::inst::Inst;
+use crate::ws::token::TokenSeq;
 
-pub struct Parser {}
+pub struct Parser {
+    entries: Vec<ParseEntry>,
+}
+
+enum ParseEntry {
+    None,
+    Prefix(Vec<TokenSeq>),
+    Terminal(Box<dyn Fn(&mut Parser) -> Option<Inst>>),
+}
 
 impl Parser {
     #[inline]
     pub const fn new() -> Self {
-        Parser {}
+        Parser {
+            entries: Vec::new(),
+        }
     }
 
-    pub fn register(&mut self, _id: usize, _handle: Box<dyn Fn(&mut Parser) -> Option<Inst>>) {
+    pub fn register(&mut self, _seq: TokenSeq, _handle: Box<dyn Fn(&mut Parser) -> Option<Inst>>) {
         todo!();
     }
 }
