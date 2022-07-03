@@ -37,7 +37,10 @@ impl ParseTable {
 
     pub fn new() -> Self {
         ParseTable {
-            dense: Box::new([const { ParseEntry::None }; Self::DENSE_LEN]),
+            dense: vec![ParseEntry::None; Self::DENSE_LEN]
+                .into_boxed_slice()
+                .try_into()
+                .unwrap(),
             sparse: HashMap::new(),
         }
     }
