@@ -8,6 +8,7 @@
 
 use enumset::{EnumSet, EnumSetType};
 use paste::paste;
+use std::fmt::{self, Display, Formatter};
 
 use crate::ws::parse::Parser;
 use crate::ws::token::{Token, Token::*, TokenSeq};
@@ -63,6 +64,22 @@ macro_rules! insts {
             }
         }
 
+        impl Display for Inst {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                // TODO: uses Debug for arguments
+                paste! {
+                    match self {
+                        $(Inst::$opcode $(([<$arg:snake>]))? =>
+                            match_optional!($($arg)?,
+                                write!(f, concat!(stringify!([<$opcode:snake>]), " {:?}"), $([<$arg:snake>])?),
+                                f.write_str(stringify!([<$opcode:snake>]))
+                            )
+                        ),+
+                    }
+                }
+            }
+        }
+
         #[repr(u8)]
         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub enum Opcode {
@@ -82,6 +99,15 @@ macro_rules! insts {
                 match self {
                     $(Opcode::$opcode =>
                         match_optional!($($feature)?, $(Some(Feature::$feature))?, None)),+
+                }
+            }
+
+            #[inline]
+            pub fn to_str(&self) -> &'static str {
+                paste! {
+                    match self {
+                        $(Opcode::$opcode => stringify!([<$opcode:snake>])),+
+                    }
                 }
             }
         }
@@ -108,6 +134,12 @@ macro_rules! insts {
                 parser
             }
         }
+    }
+}
+
+impl Display for Opcode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(self.to_str())
     }
 }
 
