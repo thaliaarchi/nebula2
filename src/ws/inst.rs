@@ -11,7 +11,7 @@ use paste::paste;
 use std::fmt::{self, Display, Formatter};
 
 use crate::ws::parse::Parser;
-use crate::ws::token::{Token, Token::*, TokenSeq};
+use crate::ws::token::{Token::*, TokenSeq};
 
 #[derive(Clone, Debug)]
 pub struct Int {}
@@ -41,9 +41,11 @@ pub enum Feature {
     DumpTrace,
 }
 
-macro_rules! match_optional(
+macro_rules! subst(
     ($optional:expr, $($then:expr)?, $else:expr) => { $($then)? };
+    ($optional:expr, $($then:expr)?) => { $($then)? };
     ( , $($then:expr)?, $else:expr) => { $else };
+    ( , $($then:expr)?) => { };
 );
 
 macro_rules! insts {
@@ -67,14 +69,12 @@ macro_rules! insts {
         impl Display for Inst {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 // TODO: uses Debug for arguments
+                f.write_str(self.opcode().to_str())?;
                 paste! {
                     match self {
-                        $(Inst::$opcode $(([<$arg:snake>]))? =>
-                            match_optional!($($arg)?,
-                                write!(f, concat!(stringify!([<$opcode:snake>]), " {:?}"), $([<$arg:snake>])?),
-                                f.write_str(stringify!([<$opcode:snake>]))
-                            )
-                        ),+
+                        $(Inst::$opcode $(([<$arg:snake>]))? => {
+                            subst!($($arg)?, write!(f, " {:?}", $([<$arg:snake>])?), Ok(()))
+                        }),+
                     }
                 }
             }
@@ -87,6 +87,27 @@ macro_rules! insts {
         }
 
         impl Opcode {
+            const COUNT: usize = 0 $(+ subst!($opcode, 1))+;
+            const NAMES: [&'static str; Self::COUNT] = [
+                $(paste!(stringify!([<$opcode:snake>]))),+
+            ];
+            const SEQS: [TokenSeq; Self::COUNT] = [
+                $(TokenSeq::from_tokens(&[$($seq),+])),+
+            ];
+
+            const MAX_SEQ: TokenSeq = {
+                let mut max = Opcode::SEQS[0];
+                let mut i = 1;
+                while i < Opcode::SEQS.len() {
+                    // TODO: derived PartialOrd is not const
+                    if Opcode::SEQS[i].0 > max.0 {
+                        max = Opcode::SEQS[i];
+                    }
+                    i += 1;
+                }
+                max
+            };
+
             #[inline]
             pub fn parse_arg(&self, parser: &mut Parser) -> Option<Inst> {
                 match self {
@@ -97,39 +118,16 @@ macro_rules! insts {
             #[inline]
             pub fn feature(&self) -> Option<Feature> {
                 match self {
-                    $(Opcode::$opcode =>
-                        match_optional!($($feature)?, $(Some(Feature::$feature))?, None)),+
-                }
-            }
-
-            #[inline]
-            pub fn to_str(&self) -> &'static str {
-                paste! {
-                    match self {
-                        $(Opcode::$opcode => stringify!([<$opcode:snake>])),+
-                    }
+                    $(Opcode::$opcode => {
+                        subst!($($feature)?, $(Some(Feature::$feature))?, None)
+                    }),+
                 }
             }
         }
 
-        const MAX_SEQ: TokenSeq = {
-            let seqs: &[&[Token]] = &[$(&[$($seq),+]),+];
-            let mut max = TokenSeq::from_tokens(seqs[0]);
-            let mut i = 1;
-            while i < seqs.len() {
-                let seq = TokenSeq::from_tokens(seqs[i]);
-                // TODO: derived PartialOrd is not const
-                if seq.0 > max.0 {
-                    max = seq;
-                }
-                i += 1;
-            }
-            max
-        };
-
         impl Parser {
             pub fn new() -> Self {
-                let mut parser = Parser::with_len(MAX_SEQ.0 + 1);
+                let mut parser = Parser::with_len(Opcode::MAX_SEQ.0 + 1);
                 $(parser.register(&[$($seq),+], Opcode::$opcode);)+
                 parser
             }
@@ -140,6 +138,18 @@ macro_rules! insts {
 impl Display for Opcode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str(self.to_str())
+    }
+}
+
+impl Opcode {
+    #[inline]
+    pub fn to_str(&self) -> &'static str {
+        Opcode::NAMES[*self as usize]
+    }
+
+    #[inline]
+    pub fn seq(&self) -> TokenSeq {
+        Opcode::SEQS[*self as usize]
     }
 }
 
