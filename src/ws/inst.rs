@@ -8,9 +8,8 @@
 
 use enumset::{EnumSet, EnumSetType};
 
-use self::Inst::*;
 use crate::ws::parse::Parser;
-use crate::ws::token::Token::*;
+use crate::ws::token::{Token, Token::*, TokenSeq};
 
 #[derive(Clone, Debug)]
 pub struct Int {}
@@ -32,7 +31,7 @@ impl Uint {
 
 pub type Features = EnumSet<Feature>;
 
-#[derive(EnumSetType)]
+#[derive(Debug, EnumSetType)]
 pub enum Feature {
     Wspace0_3,
     Shuffle,
@@ -40,85 +39,80 @@ pub enum Feature {
     DumpTrace,
 }
 
-pub enum Inst {
-    Push(Int),
-    Dup,
-    Copy(Int),
-    Swap,
-    Drop,
-    Slide(Int),
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    Store,
-    Retrieve,
-    Label(Uint),
-    Call(Uint),
-    Jmp(Uint),
-    Jz(Uint),
-    Jn(Uint),
-    Ret,
-    End,
-    Printc,
-    Printi,
-    Readc,
-    Readi,
+macro_rules! insts {
+    ($([$($seq:expr)+ $(; $arg:ident)?] $(if $feature:ident)? => $opcode:ident),+$(,)?) => {
+        #[derive(Clone, Debug)]
+        pub enum Inst {
+            $($opcode $(($arg))?),+
+        }
 
-    Shuffle,
-    DumpStack,
-    DumpHeap,
-    DumpTrace,
-}
+        #[repr(u8)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        pub enum Opcode {
+            $($opcode),+
+        }
 
-macro_rules! parser(
-    ($features:expr, { $([$($seq:expr)+ $(; $arg:ident)?] $(if $feature:ident)? => $inst:ident),+$(,)? }) => {
-        {
-            let features = $features;
-            let mut parser = $crate::ws::parse::Parser::new();
-            $(if true $(&& features.contains($crate::ws::inst::Feature::$feature))? {
-                parser.register(
-                    const { $crate::ws::token::TokenSeq::from_tokens(&[$($seq),+]) },
-                    Box::new(|_p| Some($inst $(($arg::parse(_p)?))?)),
-                );
-            })+
-            parser
+        impl Opcode {
+            #[inline]
+            pub fn parse_arg(&self, parser: &mut Parser) -> Option<Inst> {
+                match self {
+                    $(Opcode::$opcode => Some(Inst::$opcode $(($arg::parse(parser)?))?)),+
+                }
+            }
+        }
+
+        const MAX_SEQ: TokenSeq = {
+            let seqs: &[&[Token]] = &[$(&[$($seq),+]),+];
+            let mut max = TokenSeq::from_tokens(seqs[0]);
+            let mut i = 1;
+            while i < seqs.len() {
+                let seq = TokenSeq::from_tokens(seqs[i]);
+                // TODO: derived PartialOrd is not const
+                if seq.0 > max.0 {
+                    max = seq;
+                }
+                i += 1;
+            }
+            max
+        };
+
+        impl Parser {
+            pub fn new() -> Self {
+                let mut parser = Parser::with_len(MAX_SEQ.0 + 1);
+                $(parser.register(&[$($seq),+], Opcode::$opcode);)+
+                parser
+            }
         }
     }
-);
+}
 
-impl Parser {
-    pub fn with_features(features: Features) -> Parser {
-        parser!(features, {
-            [S S; Int] => Push,
-            [S L S] => Dup,
-            [S T S; Int] if Wspace0_3 => Copy,
-            [S L T] => Swap,
-            [S L L] => Drop,
-            [S T L; Int] if Wspace0_3 => Slide,
-            [T S S S] => Add,
-            [T S S T] => Sub,
-            [T S S L] => Mul,
-            [T S T S] => Div,
-            [T S T T] => Mod,
-            [T T S] => Store,
-            [T T T] => Retrieve,
-            [L S S; Uint] => Label,
-            [L S T; Uint] => Call,
-            [L S L; Uint] => Jmp,
-            [L T S; Uint] => Jz,
-            [L T T; Uint] => Jn,
-            [L T L] => Ret,
-            [L L L] => End,
-            [T L S S] => Printc,
-            [T L S T] => Printi,
-            [T L T S] => Readc,
-            [T L T T] => Readi,
-            [S T T S] if Shuffle => Shuffle,
-            [L L S S S] if DumpStackHeap => DumpStack,
-            [L L S S T] if DumpStackHeap => DumpHeap,
-            [L L T] if DumpTrace => DumpTrace,
-        })
-    }
+insts! {
+    [S S; Int] => Push,
+    [S L S] => Dup,
+    [S T S; Int] if Wspace0_3 => Copy,
+    [S L T] => Swap,
+    [S L L] => Drop,
+    [S T L; Int] if Wspace0_3 => Slide,
+    [T S S S] => Add,
+    [T S S T] => Sub,
+    [T S S L] => Mul,
+    [T S T S] => Div,
+    [T S T T] => Mod,
+    [T T S] => Store,
+    [T T T] => Retrieve,
+    [L S S; Uint] => Label,
+    [L S T; Uint] => Call,
+    [L S L; Uint] => Jmp,
+    [L T S; Uint] => Jz,
+    [L T T; Uint] => Jn,
+    [L T L] => Ret,
+    [L L L] => End,
+    [T L S S] => Printc,
+    [T L S T] => Printi,
+    [T L T S] => Readc,
+    [T L T T] => Readi,
+    [S T T S] if Shuffle => Shuffle,
+    [L L S S S] if DumpStackHeap => DumpStack,
+    [L L S S T] if DumpStackHeap => DumpHeap,
+    [L L T] if DumpTrace => DumpTrace,
 }

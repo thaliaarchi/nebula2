@@ -6,28 +6,30 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
-use crate::ws::inst::Inst;
-use crate::ws::token::TokenSeq;
+use crate::ws::inst::Opcode;
+use crate::ws::token::Token;
 
+#[derive(Clone, Debug)]
 pub struct Parser {
     entries: Vec<ParseEntry>,
 }
 
+#[derive(Clone, Debug, Default)]
 enum ParseEntry {
+    #[default]
     None,
-    Prefix(Vec<TokenSeq>),
-    Terminal(Box<dyn Fn(&mut Parser) -> Option<Inst>>),
+    Prefix(Vec<Opcode>),
+    Terminal(Opcode),
 }
 
 impl Parser {
-    #[inline]
-    pub const fn new() -> Self {
-        Parser {
-            entries: Vec::new(),
-        }
+    pub fn with_len(len: usize) -> Self {
+        let mut entries = Vec::new();
+        entries.resize(len, ParseEntry::None);
+        Parser { entries }
     }
 
-    pub fn register(&mut self, _seq: TokenSeq, _handle: Box<dyn Fn(&mut Parser) -> Option<Inst>>) {
+    pub fn register(&mut self, _toks: &[Token], _opcode: Opcode) {
         todo!();
     }
 }

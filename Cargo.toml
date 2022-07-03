@@ -3,6 +3,7 @@ name = "yspace2"
 version = "0.1.0"
 authors = ["Andrew Archibald <andrew@aarchibald.com>"]
 edition = "2021"
+rust-version = "1.62"
 description = "Toolchain for the Whitespace programming language"
 readme = "README.md"
 homepage = "https://github.com/andrewarchi/yspace2"
