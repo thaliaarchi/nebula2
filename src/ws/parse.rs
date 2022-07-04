@@ -11,7 +11,6 @@ use std::collections::HashMap;
 
 use crate::ws::inst::{Features, Inst, Int, Opcode, Sign, Uint};
 use crate::ws::token::{Token, Token::*, TokenSeq};
-use crate::ws::token_vec::TokenVec;
 
 #[derive(Clone, Debug)]
 pub struct Parser {
@@ -34,7 +33,9 @@ impl Parser {
     pub fn new(toks: Vec<Token>, features: Features) -> Result<Self, ParserError> {
         let mut table = ParseTable::new();
         for opcode in Opcode::iter() {
-            table.register(opcode.tokens(), opcode)?;
+            if opcode.feature().map_or(true, |f| features.contains(f)) {
+                table.register(opcode)?;
+            }
         }
         Ok(Parser {
             table,
@@ -132,7 +133,7 @@ pub enum ParseEntry {
 #[derive(Clone, Debug)]
 pub enum ParserError {
     Conflict { seq: TokenSeq, opcodes: Vec<Opcode> },
-    EmptyTokenSeq,
+    EmptyTokenSeq(Opcode),
 }
 
 impl ParseTable {
@@ -165,9 +166,10 @@ impl ParseTable {
         }
     }
 
-    pub fn register(&mut self, toks: TokenVec, opcode: Opcode) -> Result<(), ParserError> {
+    pub fn register(&mut self, opcode: Opcode) -> Result<(), ParserError> {
+        let toks = opcode.tokens();
         if toks.len() == 0 {
-            return Err(ParserError::EmptyTokenSeq);
+            return Err(ParserError::EmptyTokenSeq(opcode));
         }
         let mut seq = TokenSeq::new();
         for tok in toks {
