@@ -6,6 +6,8 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
+use std::fmt::{self, Debug, Formatter};
+
 use crate::ws::token::Token;
 
 const LEN_BITS: u64 = 6;
@@ -131,6 +133,22 @@ impl Iterator for TokenVec {
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.len(), Some(self.len()))
+    }
+}
+
+impl Debug for TokenVec {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str("[")?;
+        let mut first = true;
+        for tok in *self {
+            if !first {
+                f.write_str(" ")?;
+            }
+            write!(f, "{:?}", tok)?;
+            first = false;
+        }
+        f.write_str("]")?;
+        Ok(())
     }
 }
 
