@@ -8,53 +8,72 @@
 
 use crate::ws::token::Token;
 
+const LEN_BITS: u64 = 6;
+const LEN_MASK: u64 = 0b111111;
+
 #[derive(Clone, Copy, Default)]
-pub struct TokenVec {
-    data: u64,
-}
+pub struct TokenVec(u64);
 
 impl TokenVec {
-    const LEN_BITS: u64 = 6;
-    const LEN_MASK: u64 = 0b111111;
-
     #[inline]
     pub const fn new() -> Self {
-        TokenVec { data: 0 }
+        TokenVec(0)
     }
 
     #[inline]
     pub fn push(&mut self, tok: Token) {
-        let len = self.len();
-        self.set_len(len + 1);
-        self.set(len, tok);
+        TokenVec(self.0) = self.push_const(tok);
     }
 
     #[inline]
     pub fn pop(&mut self) -> Token {
-        let len = self.len();
-        self.set_len(len - 1);
-        self.get(len)
+        let (tok, vec) = self.pop_const();
+        self.0 = vec.0;
+        tok
     }
 
     #[inline]
     pub fn push_front(&mut self, tok: Token) {
-        debug_assert!(self.len() < self.cap());
-        self.data = (self.data & !Self::LEN_MASK) << 2
-            | (self.data & Self::LEN_MASK) + 1
-            | (tok as u64) << Self::LEN_BITS;
+        TokenVec(self.0) = self.push_front_const(tok);
     }
 
     #[inline]
     pub fn pop_front(&mut self) -> Token {
-        let tok = self.get(0);
-        self.data = (self.data >> 2) & !Self::LEN_MASK | (self.data & Self::LEN_MASK) - 1;
+        let (tok, vec) = self.pop_front_const();
+        self.0 = vec.0;
         tok
+    }
+
+    #[inline]
+    pub const fn push_const(&self, tok: Token) -> TokenVec {
+        let len = self.len();
+        self.set_len_const(len + 1).set_const(len, tok)
+    }
+
+    #[inline]
+    pub const fn pop_const(&self) -> (Token, TokenVec) {
+        let len = self.len();
+        (self.get(len), self.set_len_const(len - 1))
+    }
+
+    #[inline]
+    pub const fn push_front_const(&self, tok: Token) -> TokenVec {
+        debug_assert!(self.len() < self.cap());
+        TokenVec((self.0 & !LEN_MASK) << 2 | (tok as u64) << LEN_BITS | (self.0 & LEN_MASK) + 1)
+    }
+
+    #[inline]
+    pub const fn pop_front_const(&self) -> (Token, TokenVec) {
+        (
+            self.get(0),
+            TokenVec(self.0 >> 2).set_len_const(self.len() - 1),
+        )
     }
 
     #[inline]
     pub const fn get(&self, i: usize) -> Token {
         debug_assert!(i < self.len());
-        match (self.data >> Self::shift_for(i)) & 0b11 {
+        match (self.0 >> Self::shift_for(i)) & 0b11 {
             0 => Token::S,
             1 => Token::T,
             2 => Token::L,
@@ -64,20 +83,25 @@ impl TokenVec {
 
     #[inline]
     pub fn set(&mut self, i: usize, tok: Token) {
+        TokenVec(self.0) = self.set_const(i, tok);
+    }
+
+    #[inline]
+    pub const fn set_const(&self, i: usize, tok: Token) -> TokenVec {
         debug_assert!(i < self.len());
         let shift = Self::shift_for(i);
-        self.data = self.data & !(0b11 << shift) | ((tok as u64) << shift);
+        TokenVec(self.0 & !(0b11 << shift) | ((tok as u64) << shift))
     }
 
     #[inline]
     pub const fn len(&self) -> usize {
-        (self.data & Self::LEN_MASK) as usize
+        (self.0 & LEN_MASK) as usize
     }
 
     #[inline]
-    fn set_len(&mut self, len: usize) {
+    const fn set_len_const(&self, len: usize) -> TokenVec {
         debug_assert!(len <= self.cap());
-        self.data = (self.data & !Self::LEN_MASK) | len as u64;
+        TokenVec((self.0 & !LEN_MASK) | len as u64)
     }
 
     #[inline]
@@ -86,25 +110,37 @@ impl TokenVec {
     }
 
     #[inline]
+    pub const fn empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[inline]
     const fn shift_for(i: usize) -> u64 {
-        i as u64 * 2 + Self::LEN_BITS
+        i as u64 * 2 + LEN_BITS
+    }
+}
+
+impl Iterator for TokenVec {
+    type Item = Token;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        (!self.empty()).then(|| self.pop_front())
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len(), Some(self.len()))
     }
 }
 
 #[macro_export]
 macro_rules! token_vec[
-    ($($tok:ident)*) => {
-        TokenVec {
-            data: (token_vec!(@concat $($tok)*)) << 6
-                | (0 $(+ token_vec!(@one $tok))+)
-        }
+    (@tok S) => { $crate::ws::token::Token::S };
+    (@tok T) => { $crate::ws::token::Token::T };
+    (@tok L) => { $crate::ws::token::Token::L };
+    (@tok $tok:expr) => { $tok };
+    ($($tok:tt)*) => {
+        TokenVec(0)$(.push_const(token_vec!(@tok $tok)))*
     };
-    (@concat $tok:ident $($rest:ident)*) => {
-        token_vec!(@tok $tok) | (token_vec!(@concat $($rest)*)) << 2
-    };
-    (@concat) => { 0 };
-    (@tok S) => { 0 };
-    (@tok T) => { 1 };
-    (@tok L) => { 2 };
-    (@one $tok:ident) => { 1 };
 ];
