@@ -6,29 +6,30 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
+use bitvec::prelude::BitVec;
 use enumset::{EnumSet, EnumSetType};
 use paste::paste;
 use std::fmt::{self, Display, Formatter};
 
-use crate::ws::parse::{ParseTable, ParserError};
+use crate::ws::parse::{ParseError, ParseTable, Parser, ParserError};
 use crate::ws::token::{Token::*, TokenSeq};
 
-#[derive(Clone, Debug)]
-pub struct Int {}
-
-#[derive(Clone, Debug)]
-pub struct Uint {}
-
-impl Int {
-    pub fn parse(_p: &mut ParseTable) -> Option<Int> {
-        todo!();
-    }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Int {
+    pub sign: Sign,
+    pub bits: BitVec,
 }
 
-impl Uint {
-    pub fn parse(_p: &mut ParseTable) -> Option<Uint> {
-        todo!();
-    }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Sign {
+    Pos,
+    Neg,
+    Empty,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Uint {
+    pub bits: BitVec,
 }
 
 pub type Features = EnumSet<Feature>;
@@ -50,7 +51,7 @@ macro_rules! subst(
 
 macro_rules! insts {
     ($([$($seq:expr)+ $(; $arg:ident)?] $(if $feature:ident)? => $opcode:ident),+$(,)?) => {
-        #[derive(Clone, Debug)]
+        #[derive(Clone, Debug, PartialEq, Eq)]
         pub enum Inst {
             $($opcode $(($arg))?),+
         }
@@ -96,9 +97,13 @@ macro_rules! insts {
             ];
 
             #[inline]
-            pub fn parse_arg(&self, parser: &mut ParseTable) -> Option<Inst> {
-                match self {
-                    $(Opcode::$opcode => Some(Inst::$opcode $(($arg::parse(parser)?))?)),+
+            pub fn parse_arg(&self, parser: &mut Parser) -> Result<Inst, ParseError> {
+                paste! {
+                    match self {
+                        $(Opcode::$opcode => {
+                            Ok(Inst::$opcode $((parser.[<parse_ $arg:snake>](Opcode::$opcode)?))?)
+                        }),+
+                    }
                 }
             }
 

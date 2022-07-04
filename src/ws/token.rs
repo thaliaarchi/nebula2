@@ -8,23 +8,12 @@
 
 use self::Token::*;
 
+#[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Token {
     S = 0,
     T = 1,
     L = 2,
-}
-
-impl Token {
-    #[inline]
-    const fn from_u16(n: u16) -> Self {
-        match n {
-            0 => S,
-            1 => T,
-            2 => L,
-            _ => unreachable!(),
-        }
-    }
 }
 
 #[allow(non_snake_case)]
@@ -86,10 +75,14 @@ impl TokenSeq {
 
     #[inline]
     pub const fn pop(&self) -> (TokenSeq, Token) {
-        (
-            TokenSeq((self.0 - 1) / 3),
-            Token::from_u16((self.0 - 1) % 3),
-        )
+        let seq = TokenSeq((self.0 - 1) / 3);
+        let tok = match (self.0 - 1) % 3 {
+            0 => S,
+            1 => T,
+            2 => L,
+            _ => unreachable!(),
+        };
+        (seq, tok)
     }
 
     #[inline]

@@ -13,6 +13,7 @@ keywords = ["whitespace", "compiler"]
 categories = ["compilers"]
 
 [dependencies]
+bitvec = "1.0.0"
 enumset = { version = "1.0.11", features = ["std"] }
 paste = "1.0.7"
 
