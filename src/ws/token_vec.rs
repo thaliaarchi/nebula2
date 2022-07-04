@@ -154,6 +154,13 @@ impl const From<&[Token]> for TokenVec {
     }
 }
 
+impl<const N: usize> const From<&[Token; N]> for TokenVec {
+    #[inline]
+    fn from(toks: &[Token; N]) -> Self {
+        TokenVec(Self::bits(toks) << LEN_BITS | N as u64)
+    }
+}
+
 impl const Iterator for TokenVec {
     type Item = Token;
 

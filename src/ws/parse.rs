@@ -11,6 +11,7 @@ use std::collections::HashMap;
 
 use crate::ws::inst::{Features, Inst, Int, Opcode, Sign, Uint};
 use crate::ws::token::{Token, Token::*, TokenSeq};
+use crate::ws::token_vec::TokenVec;
 
 #[derive(Clone, Debug)]
 pub struct Parser {
@@ -30,15 +31,17 @@ pub enum ParseError {
 }
 
 impl Parser {
-    pub fn new(toks: Vec<Token>, features: Features) -> Self {
+    pub fn new(toks: Vec<Token>, features: Features) -> Result<Self, ParserError> {
         let mut table = ParseTable::new();
-        table.insert_insts().unwrap();
-        Parser {
+        for opcode in Opcode::iter() {
+            table.register(opcode.tokens(), opcode)?;
+        }
+        Ok(Parser {
             table,
             toks,
             offset: 0,
             features,
-        }
+        })
     }
 
     fn next_tok(&mut self) -> Option<Token> {
@@ -162,12 +165,12 @@ impl ParseTable {
         }
     }
 
-    pub fn insert(&mut self, toks: &[Token], opcode: Opcode) -> Result<(), ParserError> {
+    pub fn register(&mut self, toks: TokenVec, opcode: Opcode) -> Result<(), ParserError> {
         if toks.len() == 0 {
             return Err(ParserError::EmptyTokenSeq);
         }
         let mut seq = TokenSeq::new();
-        for &tok in toks {
+        for tok in toks {
             let entry = self.get_mut(seq);
             match entry {
                 ParseEntry::None => *entry = ParseEntry::Prefix(vec![opcode]),
@@ -252,7 +255,7 @@ fn test_parse_tutorial() -> Result<(), ParseError> {
         Inst::Drop,
         Inst::End,
     ];
-    let parser = Parser::new(toks, Features::all());
+    let parser = Parser::new(toks, Features::all()).unwrap();
     let insts2 = parser.collect::<Result<Vec<_>, ParseError>>()?;
     assert_eq!(insts, insts2);
     Ok(())

@@ -10,9 +10,12 @@ use bitvec::prelude::BitVec;
 use enumset::{EnumSet, EnumSetType};
 use paste::paste;
 use std::fmt::{self, Display, Formatter};
+use std::iter::FusedIterator;
+use std::mem::transmute;
 
-use crate::ws::parse::{ParseError, ParseTable, Parser, ParserError};
+use crate::ws::parse::{ParseError, Parser};
 use crate::ws::token::{Token::*, TokenSeq};
+use crate::ws::token_vec::TokenVec;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Int {
@@ -95,6 +98,9 @@ macro_rules! insts {
             const SEQS: [TokenSeq; Self::COUNT] = [
                 $(TokenSeq::from_tokens(&[$($seq),+])),+
             ];
+            const TOKENS: [TokenVec; Self::COUNT] = [
+                $(TokenVec::from(&[$($seq),+])),+
+            ];
 
             #[inline]
             pub fn parse_arg(&self, parser: &mut Parser) -> Result<Inst, ParseError> {
@@ -116,13 +122,6 @@ macro_rules! insts {
                 }
             }
         }
-
-        impl ParseTable {
-            pub fn insert_insts(&mut self) -> Result<(), ParserError> {
-                $(self.insert(&[$($seq),+], Opcode::$opcode)?;)+
-                Ok(())
-            }
-        }
     }
 }
 
@@ -142,7 +141,43 @@ impl Opcode {
     pub fn seq(&self) -> TokenSeq {
         Opcode::SEQS[*self as usize]
     }
+
+    #[inline]
+    pub fn tokens(&self) -> TokenVec {
+        Opcode::TOKENS[*self as usize]
+    }
+
+    #[inline]
+    pub fn iter() -> impl Iterator<Item = Opcode> + FusedIterator {
+        OpcodeIterator(0)
+    }
 }
+
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+struct OpcodeIterator(u8);
+
+impl Iterator for OpcodeIterator {
+    type Item = Opcode;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.0 < Opcode::COUNT as u8 {
+            let opcode = unsafe { transmute(self.0 as u8) };
+            self.0 += 1;
+            Some(opcode)
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let n = Opcode::COUNT - self.0 as usize;
+        (n, Some(n))
+    }
+}
+
+impl FusedIterator for OpcodeIterator {}
 
 insts! {
     [S S; Int] => Push,
