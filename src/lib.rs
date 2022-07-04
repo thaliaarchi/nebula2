@@ -13,6 +13,7 @@ pub mod ws {
     pub mod inst;
     pub mod parse;
     pub mod token;
+    pub mod token_vec;
 
     pub use inst::Inst;
     pub use token::Token;
