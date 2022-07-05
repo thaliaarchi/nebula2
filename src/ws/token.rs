@@ -124,12 +124,12 @@ impl const From<TokenVec> for TokenSeq {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::ws::token_vec::token_vec;
 
     #[test]
-    fn test_token_seq_convert() {
+    fn convert_token_seq() {
         macro_rules! token_vecs(
             ($([$($seq:expr)*]),+$(,)?) => { vec![$(token_vec![$($seq)*]),+] }
         );

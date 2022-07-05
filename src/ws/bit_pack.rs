@@ -63,13 +63,14 @@ impl Iterator for BitLexer {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
-    use crate::ws::test::{TUTORIAL_BITS, TUTORIAL_TOKENS};
+    use crate::ws::tests::{TUTORIAL_BITS, TUTORIAL_TOKENS};
 
     #[test]
-    fn test_bit_lex_tutorial() {
-        let toks = BitLexer::new(TUTORIAL_BITS.to_owned()).collect::<Vec<_>>();
+    fn bit_lex_tutorial() {
+        let lex = BitLexer::new(TUTORIAL_BITS.to_owned());
+        let toks = lex.collect::<Vec<_>>();
         assert_eq!(TUTORIAL_TOKENS, toks);
     }
 }

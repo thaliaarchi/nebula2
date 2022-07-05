@@ -52,3 +52,17 @@ impl Iterator for Lexer {
 }
 
 impl const FusedIterator for Lexer {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ws::tests::{TUTORIAL_STL, TUTORIAL_TOKENS};
+
+    #[test]
+    fn lex_tutorial() -> Result<(), LexError> {
+        let lex = Lexer::new(TUTORIAL_STL.as_bytes().to_owned(), CharMapping::STL);
+        let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
+        assert_eq!(TUTORIAL_TOKENS, toks);
+        Ok(())
+    }
+}

@@ -31,5 +31,5 @@ pub mod ws {
     pub use token::Token;
 
     #[cfg(test)]
-    mod test;
+    mod tests;
 }

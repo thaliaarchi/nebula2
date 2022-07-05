@@ -196,14 +196,14 @@ impl ParseTable {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
-    use crate::ws::test::{tutorial_insts, TUTORIAL_STL};
+    use crate::ws::tests::{tutorial_insts, TUTORIAL_STL};
     use crate::ws::token::CharMapping;
 
     #[test]
-    fn test_parse_tutorial() -> Result<(), ParseError> {
-        let lex = Lexer::new(TUTORIAL_STL.to_owned().into_bytes(), CharMapping::STL);
+    fn parse_tutorial() -> Result<(), ParseError> {
+        let lex = Lexer::new(TUTORIAL_STL.as_bytes().to_owned(), CharMapping::STL);
         let parser = Parser::new(lex, Features::all()).unwrap();
         let insts = parser.collect::<Result<Vec<_>, ParseError>>()?;
         assert_eq!(tutorial_insts(), insts);
