@@ -8,6 +8,7 @@
 
 use bitvec::prelude::*;
 use std::collections::HashMap;
+use strum::IntoEnumIterator;
 
 use crate::ws::inst::{Features, Inst, Int, Opcode, Sign, Uint};
 use crate::ws::token::{Token, Token::*, TokenSeq};

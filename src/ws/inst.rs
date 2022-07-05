@@ -10,11 +10,10 @@ use bitvec::prelude::BitVec;
 use enumset::{EnumSet, EnumSetType};
 use paste::paste;
 use std::fmt::{self, Display, Formatter};
-use std::iter::FusedIterator;
-use std::mem::transmute;
+use strum::{Display, EnumIter, IntoStaticStr};
 
 use crate::ws::parse::{ParseError, Parser};
-use crate::ws::token::{Token::*, TokenSeq};
+use crate::ws::token::Token::*;
 use crate::ws::token_vec::{token_vec, TokenVec};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -45,11 +44,14 @@ pub enum Feature {
     DumpTrace,
 }
 
-macro_rules! subst(
-    ($optional:expr, $($then:expr)?, $else:expr) => { $($then)? };
-    ($optional:expr, $($then:expr)?) => { $($then)? };
+macro_rules! map(
+    ( , $then:tt) => { };
+    ($optional:tt, $then:tt) => { $then };
+);
+
+macro_rules! map_or(
     ( , $($then:expr)?, $else:expr) => { $else };
-    ( , $($then:expr)?) => { };
+    ($optional:expr, $($then:expr)?, $else:expr) => { $($then)? };
 );
 
 macro_rules! insts {
@@ -62,10 +64,8 @@ macro_rules! insts {
         impl Inst {
             #[inline]
             pub fn opcode(&self) -> Opcode {
-                paste! {
-                    match self {
-                        $(Inst::$opcode $(([<_ $arg:snake>]))? => Opcode::$opcode),+
-                    }
+                match self {
+                    $(Inst::$opcode $((map!($arg, _)))? => Opcode::$opcode),+
                 }
             }
         }
@@ -73,11 +73,11 @@ macro_rules! insts {
         impl Display for Inst {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 // TODO: uses Debug for arguments
-                f.write_str(self.opcode().to_str())?;
+                f.write_str(self.opcode().into())?;
                 paste! {
                     match self {
                         $(Inst::$opcode $(([<$arg:snake>]))? => {
-                            subst!($($arg)?, write!(f, " {:?}", $([<$arg:snake>])?), Ok(()))
+                            map_or!($($arg)?, write!(f, " {:?}", $([<$arg:snake>])?), Ok(()))
                         }),+
                     }
                 }
@@ -85,23 +85,16 @@ macro_rules! insts {
         }
 
         #[repr(u8)]
-        #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[derive(
+            Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+            Display, EnumIter, IntoStaticStr,
+        )]
+        #[strum(serialize_all = "snake_case")]
         pub enum Opcode {
             $($opcode),+
         }
 
         impl Opcode {
-            const COUNT: usize = 0 $(+ subst!($opcode, 1))+;
-            const NAMES: [&'static str; Self::COUNT] = [
-                $(paste!(stringify!([<$opcode:snake>]))),+
-            ];
-            const SEQS: [TokenSeq; Self::COUNT] = [
-                $(token_vec![$($seq)+].into()),+
-            ];
-            const TOKENS: [TokenVec; Self::COUNT] = [
-                $(token_vec![$($seq)+]),+
-            ];
-
             #[inline]
             pub fn parse_arg(&self, parser: &mut Parser) -> Result<Inst, ParseError> {
                 paste! {
@@ -114,70 +107,23 @@ macro_rules! insts {
             }
 
             #[inline]
-            pub fn feature(&self) -> Option<Feature> {
+            pub const fn tokens(&self) -> TokenVec {
+                match self {
+                    $(Opcode::$opcode => const { token_vec![$($seq)+] }),+
+                }
+            }
+
+            #[inline]
+            pub const fn feature(&self) -> Option<Feature> {
                 match self {
                     $(Opcode::$opcode => {
-                        subst!($($feature)?, $(Some(Feature::$feature))?, None)
+                        map_or!($($feature)?, $(Some(Feature::$feature))?, None)
                     }),+
                 }
             }
         }
     }
 }
-
-impl Display for Opcode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str(self.to_str())
-    }
-}
-
-impl Opcode {
-    #[inline]
-    pub fn to_str(&self) -> &'static str {
-        Opcode::NAMES[*self as usize]
-    }
-
-    #[inline]
-    pub fn seq(&self) -> TokenSeq {
-        Opcode::SEQS[*self as usize]
-    }
-
-    #[inline]
-    pub fn tokens(&self) -> TokenVec {
-        Opcode::TOKENS[*self as usize]
-    }
-
-    #[inline]
-    pub fn iter() -> impl Iterator<Item = Opcode> + FusedIterator {
-        OpcodeIterator(0)
-    }
-}
-
-#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
-struct OpcodeIterator(u8);
-
-impl Iterator for OpcodeIterator {
-    type Item = Opcode;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.0 < Opcode::COUNT as u8 {
-            let opcode = unsafe { transmute(self.0 as u8) };
-            self.0 += 1;
-            Some(opcode)
-        } else {
-            None
-        }
-    }
-
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let n = Opcode::COUNT - self.0 as usize;
-        (n, Some(n))
-    }
-}
-
-impl FusedIterator for OpcodeIterator {}
 
 insts! {
     [S S; Int] => Push,
