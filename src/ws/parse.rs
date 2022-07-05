@@ -20,7 +20,6 @@ pub struct Parser {
     table: ParseTable,
     toks: Vec<Token>,
     offset: usize,
-    features: Features,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -44,7 +43,6 @@ impl Parser {
             table,
             toks,
             offset: 0,
-            features,
         })
     }
 

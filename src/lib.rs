@@ -16,7 +16,6 @@
     const_trait_impl,
     inline_const
 )]
-#![allow(dead_code)]
 
 pub mod ws {
     pub mod inst;
