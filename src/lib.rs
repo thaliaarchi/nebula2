@@ -19,11 +19,13 @@
 
 pub mod ws {
     pub mod inst;
+    pub mod lex;
     pub mod parse;
     pub mod token;
     pub mod token_vec;
 
     pub use inst::Inst;
+    pub use lex::Lexer;
     pub use parse::Parser;
     pub use token::Token;
 }

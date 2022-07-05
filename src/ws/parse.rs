@@ -12,48 +12,34 @@ use bitvec::prelude::*;
 use strum::IntoEnumIterator;
 
 use crate::ws::inst::{Features, Inst, Int, Opcode, Sign, Uint};
-use crate::ws::token::{Token, Token::*, TokenSeq};
+use crate::ws::lex::{LexError, Lexer};
+use crate::ws::token::{Token::*, TokenSeq};
 use crate::ws::token_vec::token_vec;
 
 #[derive(Clone, Debug)]
 pub struct Parser {
     table: ParseTable,
-    toks: Vec<Token>,
-    offset: usize,
+    lex: Lexer,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParseError {
+    LexError(LexError),
     UnknownInst(TokenSeq),
     IncompleteInst(Vec<Opcode>),
     SignlessInt(Opcode),
-    UnterminatedInt(Opcode),
-    UnterminatedLabel(Opcode),
+    UnterminatedArg(Opcode),
 }
 
 impl Parser {
-    pub fn new(toks: Vec<Token>, features: Features) -> Result<Self, ParserError> {
+    pub fn new(lex: Lexer, features: Features) -> Result<Self, ParserError> {
         let mut table = ParseTable::new();
         for opcode in Opcode::iter() {
             if opcode.feature().map_or(true, |f| features.contains(f)) {
                 table.register(opcode)?;
             }
         }
-        Ok(Parser {
-            table,
-            toks,
-            offset: 0,
-        })
-    }
-
-    #[inline]
-    fn next_tok(&mut self) -> Option<Token> {
-        if self.offset >= self.toks.len() {
-            return None;
-        }
-        let tok = self.toks[self.offset];
-        self.offset += 1;
-        Some(tok)
+        Ok(Parser { table, lex })
     }
 
     #[inline]
@@ -62,34 +48,35 @@ impl Parser {
     }
 
     pub(crate) fn parse_int(&mut self, opcode: Opcode) -> Result<Int, ParseError> {
-        let sign = match self.next_tok().ok_or(ParseError::UnterminatedInt(opcode))? {
+        let sign = match self
+            .lex
+            .next()
+            .transpose()?
+            .ok_or(ParseError::UnterminatedArg(opcode))?
+        {
             S => Sign::Pos,
             T => Sign::Neg,
             L => return Err(ParseError::SignlessInt(opcode)),
         };
-        let bits = self
-            .parse_bitvec()
-            .ok_or(ParseError::UnterminatedInt(opcode))?;
+        let bits = self.parse_bitvec(opcode)?;
         Ok(Int { sign, bits })
     }
 
     pub(crate) fn parse_uint(&mut self, opcode: Opcode) -> Result<Uint, ParseError> {
-        let bits = self
-            .parse_bitvec()
-            .ok_or(ParseError::UnterminatedLabel(opcode))?;
+        let bits = self.parse_bitvec(opcode)?;
         Ok(Uint { bits })
     }
 
-    fn parse_bitvec(&mut self) -> Option<BitVec> {
+    fn parse_bitvec(&mut self, opcode: Opcode) -> Result<BitVec, ParseError> {
         let mut bits = BitVec::new();
-        while let Some(tok) = self.next_tok() {
+        while let Some(tok) = self.lex.next().transpose()? {
             match tok {
                 S => bits.push(false),
                 T => bits.push(true),
-                L => return Some(bits),
+                L => return Ok(bits),
             }
         }
-        None
+        Err(ParseError::UnterminatedArg(opcode))
     }
 }
 
@@ -97,25 +84,27 @@ impl Iterator for Parser {
     type Item = Result<Inst, ParseError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.offset >= self.toks.len() {
-            return None;
-        }
         let mut seq = TokenSeq::new();
+        let mut prefix = &Vec::new();
         loop {
-            seq.push(self.toks[self.offset]);
-            self.offset += 1;
+            match self.lex.next() {
+                Some(Ok(tok)) => seq.push(tok),
+                Some(Err(err)) => return Some(Err(ParseError::LexError(err))),
+                None if seq.empty() => return None,
+                None => return Some(Err(ParseError::IncompleteInst(prefix.clone()))),
+            }
             match self.table.get(seq) {
                 ParseEntry::None => return Some(Err(ParseError::UnknownInst(seq))),
-                ParseEntry::Prefix(opcodes) => {
-                    if self.offset >= self.toks.len() {
-                        return Some(Err(ParseError::IncompleteInst(opcodes.clone())));
-                    }
-                }
-                ParseEntry::Terminal(opcode) => {
-                    return Some(self.parse_arg(*opcode));
-                }
+                ParseEntry::Prefix(opcodes) => prefix = opcodes,
+                ParseEntry::Terminal(opcode) => return Some(self.parse_arg(*opcode)),
             }
         }
+    }
+}
+
+impl const From<LexError> for ParseError {
+    fn from(err: LexError) -> Self {
+        ParseError::LexError(err)
     }
 }
 
@@ -206,64 +195,73 @@ impl ParseTable {
     }
 }
 
-#[test]
-fn test_parse_tutorial() -> Result<(), ParseError> {
-    let toks = vec![
-        S, S, S, T, L, // push 1
-        L, S, S, S, T, S, S, S, S, T, T, L, // label_C:
-        S, L, S, // dup
-        T, L, S, T, // printi
-        S, S, S, T, S, T, S, L, // push 10
-        T, L, S, S, // printc
-        S, S, S, T, L, // push 1
-        T, S, S, S, // add
-        S, L, S, // dup
-        S, S, S, T, S, T, T, L, // push 11
-        T, S, S, T, // sub
-        L, T, S, S, T, S, S, S, T, S, T, L, // jz label_E
-        L, S, L, S, T, S, S, S, S, T, T, L, // jmp label_C
-        L, S, S, S, T, S, S, S, T, S, T, L, // label_E:
-        S, L, L, // drop
-        L, L, L, // end
-    ];
-    let label_c = Uint {
-        bits: bitvec![0, 1, 0, 0, 0, 0, 1, 1],
-    };
-    let label_e = Uint {
-        bits: bitvec![0, 1, 0, 0, 0, 1, 0, 1],
-    };
-    let insts = vec![
-        Inst::Push(Int {
-            sign: Sign::Pos,
-            bits: bitvec![1],
-        }),
-        Inst::Label(label_c.clone()),
-        Inst::Dup,
-        Inst::Printi,
-        Inst::Push(Int {
-            sign: Sign::Pos,
-            bits: bitvec![1, 0, 1, 0],
-        }),
-        Inst::Printc,
-        Inst::Push(Int {
-            sign: Sign::Pos,
-            bits: bitvec![1],
-        }),
-        Inst::Add,
-        Inst::Dup,
-        Inst::Push(Int {
-            sign: Sign::Pos,
-            bits: bitvec![1, 0, 1, 1],
-        }),
-        Inst::Sub,
-        Inst::Jz(label_e.clone()),
-        Inst::Jmp(label_c),
-        Inst::Label(label_e),
-        Inst::Drop,
-        Inst::End,
-    ];
-    let parser = Parser::new(toks, Features::all()).unwrap();
-    let insts2 = parser.collect::<Result<Vec<_>, ParseError>>()?;
-    assert_eq!(insts, insts2);
-    Ok(())
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::ws::token::CharMapping;
+
+    #[test]
+    fn test_parse_tutorial() -> Result<(), ParseError> {
+        let src = r"
+            S S S T L                    push 1
+            L S S S T S S S S T T L  label_C:
+            S L S                        dup
+            T L S T                      printi
+            S S S T S T S L              push 10
+            T L S S                      printc
+            S S S T L                    push 1
+            T S S S                      add
+            S L S                        dup
+            S S S T S T T L              push 11
+            T S S T                      sub
+            L T S S T S S S T S T L      jz label_E
+            L S L S T S S S S T T L      jmp label_C
+            L S S S T S S S T S T L  label_E:
+            S L L                        drop
+            L L L                        end
+        ";
+
+        let label_c = Uint {
+            bits: bitvec![0, 1, 0, 0, 0, 0, 1, 1],
+        };
+        let label_e = Uint {
+            bits: bitvec![0, 1, 0, 0, 0, 1, 0, 1],
+        };
+        let insts = vec![
+            Inst::Push(Int {
+                sign: Sign::Pos,
+                bits: bitvec![1],
+            }),
+            Inst::Label(label_c.clone()),
+            Inst::Dup,
+            Inst::Printi,
+            Inst::Push(Int {
+                sign: Sign::Pos,
+                bits: bitvec![1, 0, 1, 0],
+            }),
+            Inst::Printc,
+            Inst::Push(Int {
+                sign: Sign::Pos,
+                bits: bitvec![1],
+            }),
+            Inst::Add,
+            Inst::Dup,
+            Inst::Push(Int {
+                sign: Sign::Pos,
+                bits: bitvec![1, 0, 1, 1],
+            }),
+            Inst::Sub,
+            Inst::Jz(label_e.clone()),
+            Inst::Jmp(label_c),
+            Inst::Label(label_e),
+            Inst::Drop,
+            Inst::End,
+        ];
+
+        let lex = Lexer::new(src.to_owned().into_bytes(), CharMapping::STL);
+        let parser = Parser::new(lex, Features::all()).unwrap();
+        let insts2 = parser.collect::<Result<Vec<_>, ParseError>>()?;
+        assert_eq!(insts, insts2);
+        Ok(())
+    }
 }

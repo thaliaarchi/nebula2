@@ -28,26 +28,26 @@ impl Token {
 
 #[allow(non_snake_case)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct TokenMapping {
+pub struct CharMapping {
     pub S: char,
     pub T: char,
     pub L: char,
 }
 
-impl TokenMapping {
-    pub const STL: TokenMapping = TokenMapping::new('S', 'T', 'L');
+impl CharMapping {
+    pub const STL: CharMapping = CharMapping::new('S', 'T', 'L');
 
     #[inline]
     pub const fn new(s: char, t: char, l: char) -> Self {
-        TokenMapping { S: s, T: t, L: l }
+        CharMapping { S: s, T: t, L: l }
     }
 
     #[inline]
-    pub const fn map_char(&self, c: char) -> Option<Token> {
-        match c {
-            _ if c == self.S => Some(S),
-            _ if c == self.T => Some(T),
-            _ if c == self.L => Some(L),
+    pub const fn map_char(&self, ch: char) -> Option<Token> {
+        match ch {
+            _ if ch == self.S => Some(S),
+            _ if ch == self.T => Some(T),
+            _ if ch == self.L => Some(L),
             _ => None,
         }
     }
@@ -62,10 +62,10 @@ impl TokenMapping {
     }
 }
 
-impl const Default for TokenMapping {
+impl const Default for CharMapping {
     #[inline]
     fn default() -> Self {
-        TokenMapping::new(' ', '\t', '\n')
+        CharMapping::new(' ', '\t', '\n')
     }
 }
 
@@ -102,6 +102,11 @@ impl TokenSeq {
     }
 
     #[inline]
+    pub const fn empty(&self) -> bool {
+        self.0 == 0
+    }
+
+    #[inline]
     pub const fn as_usize(&self) -> usize {
         self.0 as usize
     }
@@ -120,8 +125,8 @@ impl const From<TokenVec> for TokenSeq {
 
 #[cfg(test)]
 mod test {
-    use super::{Token::*, TokenSeq};
-    use crate::ws::token_vec::{token_vec, TokenVec};
+    use super::*;
+    use crate::ws::token_vec::token_vec;
 
     #[test]
     fn test_token_seq_convert() {
