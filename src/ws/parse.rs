@@ -48,6 +48,7 @@ impl Parser {
         })
     }
 
+    #[inline]
     fn next_tok(&mut self) -> Option<Token> {
         if self.offset >= self.toks.len() {
             return None;
@@ -57,6 +58,7 @@ impl Parser {
         Some(tok)
     }
 
+    #[inline]
     fn parse_arg(&mut self, opcode: Opcode) -> Result<Inst, ParseError> {
         opcode.parse_arg(self)
     }
@@ -133,7 +135,7 @@ pub enum ParseEntry {
     Terminal(Opcode),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParserError {
     Conflict { seq: TokenSeq, opcodes: Vec<Opcode> },
     EmptyTokenSeq(Opcode),
@@ -153,6 +155,7 @@ impl ParseTable {
         }
     }
 
+    #[inline]
     pub fn get(&self, seq: TokenSeq) -> &ParseEntry {
         if seq <= Self::DENSE_MAX {
             &self.dense[seq.as_usize()]
@@ -161,6 +164,7 @@ impl ParseTable {
         }
     }
 
+    #[inline]
     pub fn get_mut(&mut self, seq: TokenSeq) -> &mut ParseEntry {
         if seq <= Self::DENSE_MAX {
             &mut self.dense[seq.as_usize()]

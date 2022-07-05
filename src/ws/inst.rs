@@ -17,27 +17,27 @@ use crate::ws::parse::{ParseError, Parser};
 use crate::ws::token::Token::*;
 use crate::ws::token_vec::{token_vec, TokenVec};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Int {
     pub sign: Sign,
     pub bits: BitVec,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Sign {
     Pos,
     Neg,
     Empty,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Uint {
     pub bits: BitVec,
 }
 
 pub type Features = EnumSet<Feature>;
 
-#[derive(Debug)]
+#[derive(Debug, Hash)]
 #[derive(EnumSetType)]
 pub enum Feature {
     Wspace0_3,
@@ -58,14 +58,14 @@ macro_rules! map_or(
 
 macro_rules! insts {
     ($([$($seq:expr)+ $(; $arg:ident)?] $(if $feature:ident)? => $opcode:ident),+$(,)?) => {
-        #[derive(Clone, Debug, PartialEq, Eq)]
+        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
         pub enum Inst {
             $($opcode $(($arg))?),+
         }
 
         impl Inst {
             #[inline]
-            pub fn opcode(&self) -> Opcode {
+            pub const fn opcode(&self) -> Opcode {
                 match self {
                     $(Inst::$opcode $((map!($arg, _)))? => Opcode::$opcode),+
                 }

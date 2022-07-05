@@ -194,6 +194,7 @@ impl const Iterator for TokenVec {
 }
 
 impl const DoubleEndedIterator for TokenVec {
+    #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         if !self.empty() {
             Some(self.pop())
@@ -219,7 +220,8 @@ impl Debug for TokenVec {
     }
 }
 
-impl PartialEq for TokenVec {
+impl const PartialEq for TokenVec {
+    #[inline]
     fn eq(&self, other: &TokenVec) -> bool {
         // Shift overflows if len == cap
         debug_assert!(self.len() < self.cap());
