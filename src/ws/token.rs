@@ -6,6 +6,8 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
+use std::mem::transmute;
+
 use self::Token::*;
 use crate::ws::token_vec::TokenVec;
 
@@ -15,6 +17,13 @@ pub enum Token {
     S = 0,
     T = 1,
     L = 2,
+}
+
+impl Token {
+    #[inline]
+    pub const unsafe fn from_unchecked(n: u8) -> Self {
+        transmute(n)
+    }
 }
 
 #[allow(non_snake_case)]
@@ -76,12 +85,7 @@ impl TokenSeq {
 
     #[inline]
     pub const fn pop(&mut self) -> Token {
-        let tok = match (self.0 - 1) % 3 {
-            0 => S,
-            1 => T,
-            2 => L,
-            _ => unreachable!(),
-        };
+        let tok = unsafe { Token::from_unchecked(((self.0 - 1) % 3) as u8) };
         self.0 = (self.0 - 1) / 3;
         tok
     }

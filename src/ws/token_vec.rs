@@ -57,12 +57,7 @@ impl TokenVec {
     #[inline]
     pub const fn get(&self, i: usize) -> Token {
         debug_assert!(i < self.len());
-        match (self.0 >> Self::shift_for(i)) & 0b11 {
-            0 => Token::S,
-            1 => Token::T,
-            2 => Token::L,
-            _ => unreachable!(),
-        }
+        unsafe { Token::from_unchecked(((self.0 >> Self::shift_for(i)) & 0b11) as u8) }
     }
 
     #[inline]
