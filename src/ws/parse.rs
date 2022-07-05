@@ -6,8 +6,9 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
-use bitvec::prelude::*;
 use std::collections::HashMap;
+
+use bitvec::prelude::*;
 use strum::IntoEnumIterator;
 
 use crate::ws::inst::{Features, Inst, Int, Opcode, Sign, Uint};

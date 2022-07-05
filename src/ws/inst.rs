@@ -6,10 +6,11 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
+use std::fmt::{self, Display, Formatter};
+
 use bitvec::prelude::BitVec;
 use enumset::{EnumSet, EnumSetType};
 use paste::paste;
-use std::fmt::{self, Display, Formatter};
 use strum::{Display, EnumIter, IntoStaticStr};
 
 use crate::ws::parse::{ParseError, Parser};
@@ -36,7 +37,8 @@ pub struct Uint {
 
 pub type Features = EnumSet<Feature>;
 
-#[derive(Debug, EnumSetType)]
+#[derive(Debug)]
+#[derive(EnumSetType)]
 pub enum Feature {
     Wspace0_3,
     Shuffle,
@@ -85,10 +87,8 @@ macro_rules! insts {
         }
 
         #[repr(u8)]
-        #[derive(
-            Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
-            Display, EnumIter, IntoStaticStr,
-        )]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[derive(Display, EnumIter, IntoStaticStr)]
         #[strum(serialize_all = "snake_case")]
         pub enum Opcode {
             $($opcode),+

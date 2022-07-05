@@ -7,7 +7,6 @@
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
 use self::Token::*;
-
 use crate::ws::token_vec::TokenVec;
 
 #[repr(u8)]
