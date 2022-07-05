@@ -46,6 +46,11 @@ pub enum Feature {
     DumpTrace,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum InstError {
+    Utf8Error,
+}
+
 macro_rules! map(
     ( , $then:tt) => { };
     ($optional:tt, $then:tt) => { $then };
@@ -60,14 +65,16 @@ macro_rules! insts {
     ($([$($seq:expr)+ $(; $arg:ident)?] $(if $feature:ident)? => $opcode:ident),+$(,)?) => {
         #[derive(Clone, Debug, PartialEq, Eq, Hash)]
         pub enum Inst {
-            $($opcode $(($arg))?),+
+            $($opcode $(($arg))?),+,
+            Error(InstError),
         }
 
         impl Inst {
             #[inline]
             pub const fn opcode(&self) -> Opcode {
                 match self {
-                    $(Inst::$opcode $((map!($arg, _)))? => Opcode::$opcode),+
+                    $(Inst::$opcode $((map!($arg, _)))? => Opcode::$opcode),+,
+                    Inst::Error(_) => panic!("no opcode for Error"),
                 }
             }
         }
@@ -80,7 +87,8 @@ macro_rules! insts {
                     match self {
                         $(Inst::$opcode $(([<$arg:snake>]))? => {
                             map_or!($($arg)?, write!(f, " {:?}", $([<$arg:snake>])?), Ok(()))
-                        }),+
+                        }),+,
+                        Inst::Error(kind) => write!(f, " {:?}", kind),
                     }
                 }
             }
@@ -91,17 +99,17 @@ macro_rules! insts {
         #[derive(Display, EnumIter, IntoStaticStr)]
         #[strum(serialize_all = "snake_case")]
         pub enum Opcode {
-            $($opcode),+
+            $($opcode),+,
         }
 
         impl Opcode {
             #[inline]
-            pub fn parse_arg(&self, parser: &mut Parser) -> Result<Inst, ParseError> {
+            pub(crate) fn parse_arg(&self, parser: &mut Parser) -> Result<Inst, ParseError> {
                 paste! {
                     match self {
                         $(Opcode::$opcode => {
                             Ok(Inst::$opcode $((parser.[<parse_ $arg:snake>](Opcode::$opcode)?))?)
-                        }),+
+                        }),+,
                     }
                 }
             }
@@ -118,7 +126,7 @@ macro_rules! insts {
                 match self {
                     $(Opcode::$opcode => {
                         map_or!($($feature)?, $(Some(Feature::$feature))?, None)
-                    }),+
+                    }),+,
                 }
             }
         }
