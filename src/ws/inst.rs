@@ -15,7 +15,7 @@ use std::mem::transmute;
 
 use crate::ws::parse::{ParseError, Parser};
 use crate::ws::token::{Token::*, TokenSeq};
-use crate::ws::token_vec::TokenVec;
+use crate::ws::token_vec::{token_vec, TokenVec};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Int {
@@ -96,10 +96,10 @@ macro_rules! insts {
                 $(paste!(stringify!([<$opcode:snake>]))),+
             ];
             const SEQS: [TokenSeq; Self::COUNT] = [
-                $(TokenSeq::from_tokens(&[$($seq),+])),+
+                $(token_vec![$($seq)+].into()),+
             ];
             const TOKENS: [TokenVec; Self::COUNT] = [
-                $(TokenVec::from(&[$($seq),+])),+
+                $(token_vec![$($seq)+]),+
             ];
 
             #[inline]

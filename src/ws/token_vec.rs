@@ -8,12 +8,12 @@
 
 use std::fmt::{self, Debug, Formatter};
 
-use crate::ws::token::Token;
+use crate::ws::token::{Token, TokenSeq};
 
 const LEN_BITS: u64 = 6;
 const LEN_MASK: u64 = 0b111111;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Eq)]
 pub struct TokenVec(u64);
 
 impl TokenVec {
@@ -161,6 +161,20 @@ impl<const N: usize> const From<&[Token; N]> for TokenVec {
     }
 }
 
+impl const From<TokenSeq> for TokenVec {
+    #[inline]
+    fn from(seq: TokenSeq) -> TokenVec {
+        let mut seq = seq;
+        let mut toks = TokenVec::new();
+        let mut i = seq.len();
+        while i != 0 {
+            i -= 1;
+            toks.push_front(seq.pop());
+        }
+        toks
+    }
+}
+
 impl const Iterator for TokenVec {
     type Item = Token;
 
@@ -176,6 +190,16 @@ impl const Iterator for TokenVec {
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.len(), Some(self.len()))
+    }
+}
+
+impl const DoubleEndedIterator for TokenVec {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if !self.empty() {
+            Some(self.pop())
+        } else {
+            None
+        }
     }
 }
 
@@ -195,17 +219,23 @@ impl Debug for TokenVec {
     }
 }
 
-#[macro_export]
+impl PartialEq for TokenVec {
+    fn eq(&self, other: &TokenVec) -> bool {
+        // Shift overflows if len == cap
+        debug_assert!(self.len() < self.cap());
+        let (len1, len2) = (self.len(), other.len());
+        (self.0 << Self::shift_for(len1)) == (other.0 << Self::shift_for(len2))
+    }
+}
+
 macro_rules! token_vec[
     (@tok S) => { $crate::ws::token::Token::S };
     (@tok T) => { $crate::ws::token::Token::T };
     (@tok L) => { $crate::ws::token::Token::L };
     (@tok $tok:expr) => { $tok };
-    ($($tok:tt)*) => {
-        {
-            let mut vec = TokenVec(0);
-            $(vec.push(token_vec!(@tok $tok));)*
-            vec
-        }
+    () => { $crate::ws::token_vec::TokenVec::new() };
+    ($($tok:tt)+) => {
+        $crate::ws::token_vec::TokenVec::from(&[$(token_vec!(@tok $tok)),+])
     };
 ];
+pub(crate) use token_vec;

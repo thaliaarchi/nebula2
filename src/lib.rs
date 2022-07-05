@@ -8,6 +8,7 @@
 
 #![feature(
     const_array_into_iter_constructors,
+    const_convert,
     const_default_impls,
     const_for,
     const_intoiterator_identity,

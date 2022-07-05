@@ -8,6 +8,8 @@
 
 use self::Token::*;
 
+use crate::ws::token_vec::TokenVec;
+
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Token {
@@ -69,20 +71,20 @@ impl TokenSeq {
     }
 
     #[inline]
-    pub const fn push(&self, tok: Token) -> TokenSeq {
-        TokenSeq(self.0 * 3 + tok as u16 + 1)
+    pub const fn push(&mut self, tok: Token) {
+        self.0 = self.0 * 3 + tok as u16 + 1;
     }
 
     #[inline]
-    pub const fn pop(&self) -> (TokenSeq, Token) {
-        let seq = TokenSeq((self.0 - 1) / 3);
+    pub const fn pop(&mut self) -> Token {
         let tok = match (self.0 - 1) % 3 {
             0 => S,
             1 => T,
             2 => L,
             _ => unreachable!(),
         };
-        (seq, tok)
+        self.0 = (self.0 - 1) / 3;
+        tok
     }
 
     #[inline]
@@ -97,45 +99,33 @@ impl TokenSeq {
     }
 
     #[inline]
-    pub const fn from_tokens(toks: &[Token]) -> TokenSeq {
-        let mut seq = TokenSeq::new();
-        let mut i = 0;
-        while i < toks.len() {
-            seq = seq.push(toks[i]);
-            i += 1;
-        }
-        seq
-    }
-
-    // TODO: make an inline, fixed-capacity container type with const methods
-    #[inline]
-    pub fn to_tokens(&self) -> Vec<Token> {
-        let mut seq = *self;
-        let len = seq.len() as usize;
-        let mut toks = vec![S; len];
-        for i in (0..len).rev() {
-            (seq, toks[i]) = seq.pop();
-        }
-        toks
-    }
-
-    #[inline]
     pub const fn as_usize(&self) -> usize {
         self.0 as usize
     }
 }
 
+impl const From<TokenVec> for TokenSeq {
+    #[inline]
+    fn from(toks: TokenVec) -> Self {
+        let mut seq = TokenSeq::new();
+        for tok in toks {
+            seq.push(tok);
+        }
+        seq
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use super::{Token, Token::*, TokenSeq};
-
-    macro_rules! seq_vec(
-        ($([$($seq:expr)*]),+$(,)?) => { vec![$(&[$($seq),*]),+] }
-    );
+    use super::{Token::*, TokenSeq};
+    use crate::ws::token_vec::{token_vec, TokenVec};
 
     #[test]
     fn test_token_seq_convert() {
-        let seqs: Vec<&[Token]> = seq_vec![
+        macro_rules! token_vecs(
+            ($([$($seq:expr)*]),+$(,)?) => { vec![$(token_vec![$($seq)*]),+] }
+        );
+        let seqs: Vec<TokenVec> = token_vecs![
             [],
             [S], [T], [L],
             [S S], [S T], [S L],
@@ -147,10 +137,10 @@ mod test {
         ];
         for (i, &toks) in seqs.iter().enumerate() {
             let seq = TokenSeq(i as u16);
-            let seq2 = TokenSeq::from_tokens(toks);
-            assert_eq!(seq, seq2, "TokenSeq::from_tokens({:?})", toks);
-            let toks2 = seq.to_tokens();
-            assert_eq!(toks, toks2, "{:?}.to_tokens()", seq);
+            let seq2 = TokenSeq::from(toks);
+            assert_eq!(seq, seq2, "TokenSeq::from({:?})", toks);
+            let toks2 = TokenVec::from(seq);
+            assert_eq!(toks, toks2, "TokenVec::from({:?})", seq);
         }
     }
 }

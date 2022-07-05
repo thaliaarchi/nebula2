@@ -11,6 +11,7 @@ use std::collections::HashMap;
 
 use crate::ws::inst::{Features, Inst, Int, Opcode, Sign, Uint};
 use crate::ws::token::{Token, Token::*, TokenSeq};
+use crate::ws::token_vec::token_vec;
 
 #[derive(Clone, Debug)]
 pub struct Parser {
@@ -99,7 +100,7 @@ impl Iterator for Parser {
         }
         let mut seq = TokenSeq::new();
         loop {
-            seq = seq.push(self.toks[self.offset]);
+            seq.push(self.toks[self.offset]);
             self.offset += 1;
             match self.table.get(seq) {
                 ParseEntry::None => return Some(Err(ParseError::UnknownInst(seq))),
@@ -137,7 +138,7 @@ pub enum ParserError {
 }
 
 impl ParseTable {
-    const DENSE_MAX: TokenSeq = TokenSeq::from_tokens(&[L, L, L]);
+    const DENSE_MAX: TokenSeq = token_vec![L L L].into();
     const DENSE_LEN: usize = Self::DENSE_MAX.as_usize() + 1;
 
     pub fn new() -> Self {
@@ -182,7 +183,7 @@ impl ParseTable {
                     return Err(ParserError::Conflict { seq, opcodes });
                 }
             }
-            seq = seq.push(tok);
+            seq.push(tok);
         }
         let entry = self.get_mut(seq);
         match entry {
