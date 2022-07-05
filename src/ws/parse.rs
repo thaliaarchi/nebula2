@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 
-use bitvec::prelude::*;
+use bitvec::prelude::BitVec;
 use strum::IntoEnumIterator;
 
 use crate::ws::inst::{Features, Inst, Int, Opcode, Sign, Uint};
@@ -198,70 +198,15 @@ impl ParseTable {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::ws::test::{tutorial_insts, TUTORIAL_STL};
     use crate::ws::token::CharMapping;
 
     #[test]
     fn test_parse_tutorial() -> Result<(), ParseError> {
-        let src = r"
-            S S S T L                    push 1
-            L S S S T S S S S T T L  label_C:
-            S L S                        dup
-            T L S T                      printi
-            S S S T S T S L              push 10
-            T L S S                      printc
-            S S S T L                    push 1
-            T S S S                      add
-            S L S                        dup
-            S S S T S T T L              push 11
-            T S S T                      sub
-            L T S S T S S S T S T L      jz label_E
-            L S L S T S S S S T T L      jmp label_C
-            L S S S T S S S T S T L  label_E:
-            S L L                        drop
-            L L L                        end
-        ";
-
-        let label_c = Uint {
-            bits: bitvec![0, 1, 0, 0, 0, 0, 1, 1],
-        };
-        let label_e = Uint {
-            bits: bitvec![0, 1, 0, 0, 0, 1, 0, 1],
-        };
-        let insts = vec![
-            Inst::Push(Int {
-                sign: Sign::Pos,
-                bits: bitvec![1],
-            }),
-            Inst::Label(label_c.clone()),
-            Inst::Dup,
-            Inst::Printi,
-            Inst::Push(Int {
-                sign: Sign::Pos,
-                bits: bitvec![1, 0, 1, 0],
-            }),
-            Inst::Printc,
-            Inst::Push(Int {
-                sign: Sign::Pos,
-                bits: bitvec![1],
-            }),
-            Inst::Add,
-            Inst::Dup,
-            Inst::Push(Int {
-                sign: Sign::Pos,
-                bits: bitvec![1, 0, 1, 1],
-            }),
-            Inst::Sub,
-            Inst::Jz(label_e.clone()),
-            Inst::Jmp(label_c),
-            Inst::Label(label_e),
-            Inst::Drop,
-            Inst::End,
-        ];
-
-        let lex = Lexer::new(src.to_owned().into_bytes(), CharMapping::STL);
+        let lex = Lexer::new(TUTORIAL_STL.to_owned().into_bytes(), CharMapping::STL);
         let parser = Parser::new(lex, Features::all()).unwrap();
-        let insts2 = parser.collect::<Result<Vec<_>, ParseError>>()?;
-        assert_eq!(insts, insts2);
+        let insts = parser.collect::<Result<Vec<_>, ParseError>>()?;
+        assert_eq!(tutorial_insts(), insts);
         Ok(())
     }
 }

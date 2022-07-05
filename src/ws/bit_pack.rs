@@ -65,22 +65,11 @@ impl Iterator for BitLexer {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::ws::test::{TUTORIAL_BITS, TUTORIAL_TOKENS};
 
     #[test]
     fn test_bit_lex_tutorial() {
-        let src = vec![
-            0b00010111, 0b10001000, 0b00101011, 0b01101011, 0b01000010, 0b01001110, 0b11000001,
-            0b01110000, 0b01100001, 0b00101011, 0b10001011, 0b10001000, 0b01001011, 0b11011010,
-            0b00001010, 0b11110001, 0b00001001, 0b01101111, 0b11111100,
-        ];
-        let toks = vec![
-            S, S, S, T, L, L, S, S, S, T, S, S, S, S, T, T, L, S, L, S, T, L, S, T, S, S, S, T, S,
-            T, S, L, T, L, S, S, S, S, S, T, L, T, S, S, S, S, L, S, S, S, S, T, S, T, T, L, T, S,
-            S, T, L, T, S, S, T, S, S, S, T, S, T, L, L, S, L, S, T, S, S, S, S, T, T, L, L, S, S,
-            S, T, S, S, S, T, S, T, L, S, L, L, L, L, L,
-        ];
-
-        let toks2 = BitLexer::new(src).collect::<Vec<_>>();
-        assert_eq!(toks, toks2);
+        let toks = BitLexer::new(TUTORIAL_BITS.to_owned()).collect::<Vec<_>>();
+        assert_eq!(TUTORIAL_TOKENS, toks);
     }
 }

@@ -29,4 +29,7 @@ pub mod ws {
     pub use lex::Lexer;
     pub use parse::Parser;
     pub use token::Token;
+
+    #[cfg(test)]
+    mod test;
 }
