@@ -18,6 +18,7 @@
 )]
 
 pub mod ws {
+    pub mod bit_pack;
     pub mod inst;
     pub mod lex;
     pub mod parse;
