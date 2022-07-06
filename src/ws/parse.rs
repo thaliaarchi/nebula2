@@ -22,12 +22,11 @@ pub struct Parser {
     lex: Lexer,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ParseError {
-    LexError(LexError),
-    UnknownInst(TokenSeq),
-    IncompleteInst(Vec<Opcode>),
-    SignlessInt(Opcode),
+    LexError(LexError, TokenSeq),
+    UnknownOpcode(TokenSeq),
+    IncompleteInst(TokenSeq, Vec<Opcode>),
     UnterminatedArg(Opcode),
 }
 
@@ -43,45 +42,100 @@ impl Parser {
     }
 
     #[inline]
-    fn parse_arg(&mut self, opcode: Opcode) -> Result<Inst, ParseError> {
-        opcode.parse_arg(self)
+    fn parse_arg(&mut self, opcode: Opcode) -> Inst {
+        match opcode {
+            Opcode::Push => match self.parse_int(Opcode::Push) {
+                Ok(arg) => Inst::Push(arg),
+                Err(err) => Inst::from(err),
+            },
+            Opcode::Dup => Inst::Dup,
+            Opcode::Copy => match self.parse_int(Opcode::Copy) {
+                Ok(arg) => Inst::Copy(arg),
+                Err(err) => Inst::from(err),
+            },
+            Opcode::Swap => Inst::Swap,
+            Opcode::Drop => Inst::Drop,
+            Opcode::Slide => match self.parse_int(Opcode::Slide) {
+                Ok(arg) => Inst::Slide(arg),
+                Err(err) => Inst::from(err),
+            },
+            Opcode::Add => Inst::Add,
+            Opcode::Sub => Inst::Sub,
+            Opcode::Mul => Inst::Mul,
+            Opcode::Div => Inst::Div,
+            Opcode::Mod => Inst::Mod,
+            Opcode::Store => Inst::Store,
+            Opcode::Retrieve => Inst::Retrieve,
+            Opcode::Label => match self.parse_uint(Opcode::Label) {
+                Ok(arg) => Inst::Label(arg),
+                Err(err) => Inst::from(err),
+            },
+            Opcode::Call => match self.parse_uint(Opcode::Call) {
+                Ok(arg) => Inst::Call(arg),
+                Err(err) => Inst::from(err),
+            },
+            Opcode::Jmp => match self.parse_uint(Opcode::Jmp) {
+                Ok(arg) => Inst::Jmp(arg),
+                Err(err) => Inst::from(err),
+            },
+            Opcode::Jz => match self.parse_uint(Opcode::Jz) {
+                Ok(arg) => Inst::Jz(arg),
+                Err(err) => Inst::from(err),
+            },
+            Opcode::Jn => match self.parse_uint(Opcode::Jn) {
+                Ok(arg) => Inst::Jn(arg),
+                Err(err) => Inst::from(err),
+            },
+            Opcode::Ret => Inst::Ret,
+            Opcode::End => Inst::End,
+            Opcode::Printc => Inst::Printc,
+            Opcode::Printi => Inst::Printi,
+            Opcode::Readc => Inst::Readc,
+            Opcode::Readi => Inst::Readi,
+            Opcode::Shuffle => Inst::Shuffle,
+            Opcode::DumpStack => Inst::DumpStack,
+            Opcode::DumpHeap => Inst::DumpHeap,
+            Opcode::DumpTrace => Inst::DumpTrace,
+        }
     }
 
-    pub(crate) fn parse_int(&mut self, opcode: Opcode) -> Result<Int, ParseError> {
-        let sign = match self
-            .lex
-            .next()
-            .transpose()?
-            .ok_or(ParseError::UnterminatedArg(opcode))?
-        {
-            S => Sign::Pos,
-            T => Sign::Neg,
-            L => return Err(ParseError::SignlessInt(opcode)),
+    fn parse_int(&mut self, opcode: Opcode) -> Result<Int, ParseError> {
+        let sign = match self.lex.next() {
+            Some(Ok(S)) => Sign::Pos,
+            Some(Ok(T)) => Sign::Neg,
+            Some(Ok(L)) => Sign::Empty,
+            Some(Err(err)) => return Err(ParseError::LexError(err, opcode.tokens().into())),
+            None => return Err(ParseError::UnterminatedArg(opcode)),
         };
-        let bits = self.parse_bitvec(opcode)?;
+        let bits = if sign == Sign::Empty {
+            BitVec::new()
+        } else {
+            self.parse_bitvec(opcode)?
+        };
         Ok(Int { sign, bits })
     }
 
-    pub(crate) fn parse_uint(&mut self, opcode: Opcode) -> Result<Uint, ParseError> {
+    fn parse_uint(&mut self, opcode: Opcode) -> Result<Uint, ParseError> {
         let bits = self.parse_bitvec(opcode)?;
         Ok(Uint { bits })
     }
 
     fn parse_bitvec(&mut self, opcode: Opcode) -> Result<BitVec, ParseError> {
         let mut bits = BitVec::new();
-        while let Some(tok) = self.lex.next().transpose()? {
-            match tok {
-                S => bits.push(false),
-                T => bits.push(true),
-                L => return Ok(bits),
+        loop {
+            match self.lex.next() {
+                Some(Ok(S)) => bits.push(false),
+                Some(Ok(T)) => bits.push(true),
+                Some(Ok(L)) => return Ok(bits),
+                Some(Err(err)) => return Err(ParseError::LexError(err, opcode.tokens().into())),
+                None => return Err(ParseError::UnterminatedArg(opcode)),
             }
         }
-        Err(ParseError::UnterminatedArg(opcode))
     }
 }
 
 impl Iterator for Parser {
-    type Item = Result<Inst, ParseError>;
+    type Item = Inst;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut seq = TokenSeq::new();
@@ -89,22 +143,16 @@ impl Iterator for Parser {
         loop {
             match self.lex.next() {
                 Some(Ok(tok)) => seq.push(tok),
-                Some(Err(err)) => return Some(Err(ParseError::LexError(err))),
-                None if seq.empty() => return None,
-                None => return Some(Err(ParseError::IncompleteInst(prefix.clone()))),
+                Some(Err(err)) => return Some(Inst::from(ParseError::LexError(err, seq))),
+                None if seq.is_empty() => return None,
+                None => return Some(Inst::from(ParseError::IncompleteInst(seq, prefix.clone()))),
             }
             match self.table.get(seq) {
-                ParseEntry::None => return Some(Err(ParseError::UnknownInst(seq))),
+                ParseEntry::Unknown => return Some(Inst::from(ParseError::UnknownOpcode(seq))),
                 ParseEntry::Prefix(opcodes) => prefix = opcodes,
                 ParseEntry::Terminal(opcode) => return Some(self.parse_arg(*opcode)),
             }
         }
-    }
-}
-
-impl const From<LexError> for ParseError {
-    fn from(err: LexError) -> Self {
-        ParseError::LexError(err)
     }
 }
 
@@ -117,7 +165,7 @@ pub struct ParseTable {
 #[derive(Clone, Debug, Default)]
 pub enum ParseEntry {
     #[default]
-    None,
+    Unknown,
     Prefix(Vec<Opcode>),
     Terminal(Opcode),
 }
@@ -134,7 +182,7 @@ impl ParseTable {
 
     pub fn new() -> Self {
         ParseTable {
-            dense: vec![ParseEntry::None; Self::DENSE_LEN]
+            dense: vec![ParseEntry::Unknown; Self::DENSE_LEN]
                 .into_boxed_slice()
                 .try_into()
                 .unwrap(),
@@ -169,7 +217,7 @@ impl ParseTable {
         for tok in toks {
             let entry = self.get_mut(seq);
             match entry {
-                ParseEntry::None => *entry = ParseEntry::Prefix(vec![opcode]),
+                ParseEntry::Unknown => *entry = ParseEntry::Prefix(vec![opcode]),
                 ParseEntry::Prefix(opcodes) => opcodes.push(opcode),
                 ParseEntry::Terminal(terminal) => {
                     let opcodes = vec![*terminal, opcode];
@@ -180,7 +228,7 @@ impl ParseTable {
         }
         let entry = self.get_mut(seq);
         match entry {
-            ParseEntry::None => *entry = ParseEntry::Terminal(opcode),
+            ParseEntry::Unknown => *entry = ParseEntry::Terminal(opcode),
             ParseEntry::Prefix(opcodes) => {
                 let mut opcodes = opcodes.clone();
                 opcodes.push(opcode);
@@ -205,7 +253,7 @@ mod tests {
     fn parse_tutorial() -> Result<(), ParseError> {
         let lex = Lexer::new(TUTORIAL_STL.as_bytes().to_owned(), CharMapping::STL);
         let parser = Parser::new(lex, Features::all()).unwrap();
-        let insts = parser.collect::<Result<Vec<_>, ParseError>>()?;
+        let insts = parser.collect::<Vec<_>>();
         assert_eq!(tutorial_insts(), insts);
         Ok(())
     }

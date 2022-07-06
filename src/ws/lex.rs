@@ -8,6 +8,7 @@
 
 use std::iter::FusedIterator;
 
+use arrayvec::ArrayVec;
 use bstr::decode_utf8;
 
 use crate::ws::token::{CharMapping, Token};
@@ -19,9 +20,9 @@ pub struct Lexer {
     map: CharMapping,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum LexError {
-    Utf8Error,
+    InvalidUtf8(ArrayVec<u8, 3>),
 }
 
 impl Lexer {
@@ -36,7 +37,8 @@ impl Iterator for Lexer {
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.offset < self.src.len() {
-            let (ch, size) = decode_utf8(&self.src[self.offset..]);
+            let offset = self.offset;
+            let (ch, size) = decode_utf8(&self.src[offset..]);
             self.offset += size;
             match ch {
                 Some(ch) => {
@@ -44,7 +46,14 @@ impl Iterator for Lexer {
                         return Some(Ok(tok));
                     }
                 }
-                None => return Some(Err(LexError::Utf8Error)),
+                None => {
+                    // Size is guaranteed to be between 1 and 3, inclusive, for
+                    // an unsuccessful decode.
+                    let mut bad = ArrayVec::new();
+                    bad.try_extend_from_slice(&self.src[offset..offset + size])
+                        .unwrap();
+                    return Some(Err(LexError::InvalidUtf8(bad)));
+                }
             }
         }
         None

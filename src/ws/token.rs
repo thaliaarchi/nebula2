@@ -102,7 +102,7 @@ impl TokenSeq {
     }
 
     #[inline]
-    pub const fn empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.0 == 0
     }
 

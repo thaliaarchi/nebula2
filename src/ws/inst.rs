@@ -13,7 +13,7 @@ use enumset::{EnumSet, EnumSetType};
 use paste::paste;
 use strum::{Display, EnumIter, IntoStaticStr};
 
-use crate::ws::parse::{ParseError, Parser};
+use crate::ws::parse::ParseError;
 use crate::ws::token::Token::*;
 use crate::ws::token_vec::{token_vec, TokenVec};
 
@@ -46,9 +46,9 @@ pub enum Feature {
     DumpTrace,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum InstError {
-    Utf8Error,
+    ParseError(ParseError),
 }
 
 macro_rules! map(
@@ -88,7 +88,7 @@ macro_rules! insts {
                         $(Inst::$opcode $(([<$arg:snake>]))? => {
                             map_or!($($arg)?, write!(f, " {:?}", $([<$arg:snake>])?), Ok(()))
                         }),+,
-                        Inst::Error(kind) => write!(f, " {:?}", kind),
+                        Inst::Error(err) => write!(f, " {:?}", err),
                     }
                 }
             }
@@ -103,17 +103,6 @@ macro_rules! insts {
         }
 
         impl Opcode {
-            #[inline]
-            pub(crate) fn parse_arg(&self, parser: &mut Parser) -> Result<Inst, ParseError> {
-                paste! {
-                    match self {
-                        $(Opcode::$opcode => {
-                            Ok(Inst::$opcode $((parser.[<parse_ $arg:snake>](Opcode::$opcode)?))?)
-                        }),+,
-                    }
-                }
-            }
-
             #[inline]
             pub const fn tokens(&self) -> TokenVec {
                 match self {
@@ -130,6 +119,20 @@ macro_rules! insts {
                 }
             }
         }
+    }
+}
+
+impl<E: Into<InstError>> const From<E> for Inst {
+    #[inline]
+    fn from(err: E) -> Self {
+        Inst::Error(err.into())
+    }
+}
+
+impl const From<ParseError> for InstError {
+    #[inline]
+    fn from(err: ParseError) -> Self {
+        InstError::ParseError(err)
     }
 }
 

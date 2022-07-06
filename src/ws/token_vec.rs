@@ -121,7 +121,7 @@ impl TokenVec {
     }
 
     #[inline]
-    pub const fn empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
@@ -157,7 +157,6 @@ impl<const N: usize> const From<&[Token; N]> for TokenVec {
 }
 
 impl const From<TokenSeq> for TokenVec {
-    #[inline]
     fn from(seq: TokenSeq) -> TokenVec {
         let mut seq = seq;
         let mut toks = TokenVec::new();
@@ -175,7 +174,7 @@ impl const Iterator for TokenVec {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if !self.empty() {
+        if !self.is_empty() {
             Some(self.pop_front())
         } else {
             None
@@ -191,7 +190,7 @@ impl const Iterator for TokenVec {
 impl const DoubleEndedIterator for TokenVec {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
-        if !self.empty() {
+        if !self.is_empty() {
             Some(self.pop())
         } else {
             None
