@@ -120,6 +120,47 @@ macro_rules! insts {
     }
 }
 
+impl<I, L> Inst<I, L> {
+    pub fn map<I2, L2, FnI, FnL>(self, map_int: FnI, map_label: FnL) -> Inst<I2, L2>
+    where
+        FnI: FnOnce(Opcode, I) -> I2,
+        FnL: FnOnce(Opcode, L) -> L2,
+    {
+        use Inst::*;
+        match self {
+            Push(n) => Push(map_int(Opcode::Push, n)),
+            Dup => Dup,
+            Copy(n) => Copy(map_int(Opcode::Copy, n)),
+            Swap => Swap,
+            Drop => Drop,
+            Slide(n) => Slide(map_int(Opcode::Slide, n)),
+            Add => Add,
+            Sub => Sub,
+            Mul => Mul,
+            Div => Div,
+            Mod => Mod,
+            Store => Store,
+            Retrieve => Retrieve,
+            Label(l) => Label(map_label(Opcode::Label, l)),
+            Call(l) => Call(map_label(Opcode::Call, l)),
+            Jmp(l) => Jmp(map_label(Opcode::Jmp, l)),
+            Jz(l) => Jz(map_label(Opcode::Jz, l)),
+            Jn(l) => Jn(map_label(Opcode::Jn, l)),
+            Ret => Ret,
+            End => End,
+            Printc => Printc,
+            Printi => Printi,
+            Readc => Readc,
+            Readi => Readi,
+            Shuffle => Shuffle,
+            DumpStack => DumpStack,
+            DumpHeap => DumpHeap,
+            DumpTrace => DumpTrace,
+            Error(err) => Error(err),
+        }
+    }
+}
+
 impl<I, L, E: Into<InstError>> const From<E> for Inst<I, L> {
     #[inline]
     fn from(err: E) -> Self {
