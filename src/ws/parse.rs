@@ -7,6 +7,7 @@
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
 use std::collections::HashMap;
+use std::iter::FusedIterator;
 
 use bitvec::prelude::BitVec;
 use strum::IntoEnumIterator;
@@ -17,9 +18,9 @@ use crate::ws::token::{Token::*, TokenSeq};
 use crate::ws::token_vec::token_vec;
 
 #[derive(Clone, Debug)]
-pub struct Parser {
+pub struct Parser<L: Lexer> {
     table: ParseTable,
-    lex: Lexer,
+    lex: L,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -30,8 +31,8 @@ pub enum ParseError {
     UnterminatedArg(Opcode),
 }
 
-impl Parser {
-    pub fn new(lex: Lexer, features: Features) -> Result<Self, ParserError> {
+impl<L: Lexer> Parser<L> {
+    pub fn new(lex: L, features: Features) -> Result<Self, ParserError> {
         let mut table = ParseTable::new();
         for opcode in Opcode::iter() {
             if opcode.feature().map_or(true, |f| features.contains(f)) {
@@ -134,7 +135,7 @@ impl Parser {
     }
 }
 
-impl Iterator for Parser {
+impl<L: Lexer> Iterator for Parser<L> {
     type Item = Inst;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -155,6 +156,8 @@ impl Iterator for Parser {
         }
     }
 }
+
+impl<L: Lexer + FusedIterator> const FusedIterator for Parser<L> {}
 
 #[derive(Clone, Debug)]
 pub struct ParseTable {
@@ -246,12 +249,13 @@ impl ParseTable {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ws::lex::Utf8Lexer;
     use crate::ws::tests::{tutorial_insts, TUTORIAL_STL};
-    use crate::ws::token::CharMapping;
+    use crate::ws::token::Mapping;
 
     #[test]
     fn parse_tutorial() -> Result<(), ParseError> {
-        let lex = Lexer::new(TUTORIAL_STL.as_bytes().to_owned(), CharMapping::STL);
+        let lex = Utf8Lexer::new(TUTORIAL_STL.as_bytes().to_owned(), Mapping::<char>::STL);
         let parser = Parser::new(lex, Features::all()).unwrap();
         let insts = parser.collect::<Vec<_>>();
         assert_eq!(tutorial_insts(), insts);

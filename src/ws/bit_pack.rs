@@ -6,6 +6,9 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
+use std::iter::FusedIterator;
+
+use crate::ws::lex::{LexError, Lexer};
 use crate::ws::token::Token::{self, *};
 
 #[derive(Clone, Debug)]
@@ -25,7 +28,7 @@ impl BitLexer {
         }
     }
 
-    pub fn next_bit(&mut self) -> Option<bool> {
+    fn next_bit(&mut self) -> Option<bool> {
         if self.byte_offset >= self.src.len() {
             return None;
         }
@@ -45,22 +48,26 @@ impl BitLexer {
     }
 }
 
+impl Lexer for BitLexer {}
+
 impl Iterator for BitLexer {
-    type Item = Token;
+    type Item = Result<Token, LexError>;
 
     #[inline]
-    fn next(&mut self) -> Option<Token> {
+    fn next(&mut self) -> Option<Self::Item> {
         match self.next_bit() {
             Some(true) => match self.next_bit() {
-                Some(true) => Some(L),
-                Some(false) => Some(T),
+                Some(true) => Some(Ok(L)),
+                Some(false) => Some(Ok(T)),
                 None => None, // Marker bit
             },
-            Some(false) => Some(S),
+            Some(false) => Some(Ok(S)),
             None => None,
         }
     }
 }
+
+impl const FusedIterator for BitLexer {}
 
 #[cfg(test)]
 mod tests {
@@ -68,9 +75,10 @@ mod tests {
     use crate::ws::tests::{TUTORIAL_BITS, TUTORIAL_TOKENS};
 
     #[test]
-    fn bit_lex_tutorial() {
+    fn bit_lex_tutorial() -> Result<(), LexError> {
         let lex = BitLexer::new(TUTORIAL_BITS.to_owned());
-        let toks = lex.collect::<Vec<_>>();
+        let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
         assert_eq!(TUTORIAL_TOKENS, toks);
+        Ok(())
     }
 }

@@ -6,9 +6,8 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
-use std::mem::transmute;
+use std::mem;
 
-use self::Token::*;
 use crate::ws::token_vec::TokenVec;
 
 #[repr(u8)]
@@ -22,50 +21,62 @@ pub enum Token {
 impl Token {
     #[inline]
     pub const unsafe fn from_unchecked(n: u8) -> Self {
-        transmute(n)
+        mem::transmute(n)
     }
 }
 
-#[allow(non_snake_case)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct CharMapping {
-    pub S: char,
-    pub T: char,
-    pub L: char,
+pub struct Mapping<T> {
+    pub s: T,
+    pub t: T,
+    pub l: T,
 }
 
-impl CharMapping {
-    pub const STL: CharMapping = CharMapping::new('S', 'T', 'L');
-
+impl<T: Copy + Eq> Mapping<T> {
     #[inline]
-    pub const fn new(s: char, t: char, l: char) -> Self {
-        CharMapping { S: s, T: t, L: l }
+    pub const fn new(s: T, t: T, l: T) -> Self {
+        Mapping { s, t, l }
     }
 
     #[inline]
-    pub const fn map_char(&self, ch: char) -> Option<Token> {
-        match ch {
-            _ if ch == self.S => Some(S),
-            _ if ch == self.T => Some(T),
-            _ if ch == self.L => Some(L),
+    pub fn map(&self, v: T) -> Option<Token> {
+        match v {
+            _ if v == self.s => Some(Token::S),
+            _ if v == self.t => Some(Token::T),
+            _ if v == self.l => Some(Token::L),
             _ => None,
         }
     }
 
     #[inline]
-    pub const fn map_token(&self, tok: Token) -> char {
+    pub const fn map_token(&self, tok: Token) -> T {
         match tok {
-            S => self.S,
-            T => self.T,
-            L => self.L,
+            Token::S => self.s,
+            Token::T => self.t,
+            Token::L => self.l,
         }
     }
 }
 
-impl const Default for CharMapping {
+impl Mapping<char> {
+    pub const STL: Self = Mapping::new('S', 'T', 'L');
+}
+
+impl Mapping<u8> {
+    pub const STL: Self = Mapping::new(b'S', b'T', b'L');
+}
+
+impl const Default for Mapping<char> {
     #[inline]
     fn default() -> Self {
-        CharMapping::new(' ', '\t', '\n')
+        Mapping::new(' ', '\t', '\n')
+    }
+}
+
+impl const Default for Mapping<u8> {
+    #[inline]
+    fn default() -> Self {
+        Mapping::new(b' ', b'\t', b'\n')
     }
 }
 
@@ -125,6 +136,7 @@ impl const From<TokenVec> for TokenSeq {
 
 #[cfg(test)]
 mod tests {
+    use super::Token::*;
     use super::*;
     use crate::ws::token_vec::token_vec;
 

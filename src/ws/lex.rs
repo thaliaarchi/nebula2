@@ -11,28 +11,32 @@ use std::iter::FusedIterator;
 use arrayvec::ArrayVec;
 use bstr::decode_utf8;
 
-use crate::ws::token::{CharMapping, Token};
+use crate::ws::token::{Mapping, Token};
 
-#[derive(Clone, Debug)]
-pub struct Lexer {
-    src: Vec<u8>,
-    offset: usize,
-    map: CharMapping,
-}
+pub trait Lexer: Iterator<Item = Result<Token, LexError>> {}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum LexError {
     InvalidUtf8(ArrayVec<u8, 3>),
 }
 
-impl Lexer {
+#[derive(Clone, Debug)]
+pub struct Utf8Lexer {
+    src: Vec<u8>,
+    offset: usize,
+    map: Mapping<char>,
+}
+
+impl Utf8Lexer {
     #[inline]
-    pub const fn new(src: Vec<u8>, map: CharMapping) -> Self {
-        Lexer { src, offset: 0, map }
+    pub const fn new(src: Vec<u8>, map: Mapping<char>) -> Self {
+        Utf8Lexer { src, offset: 0, map }
     }
 }
 
-impl Iterator for Lexer {
+impl Lexer for Utf8Lexer {}
+
+impl Iterator for Utf8Lexer {
     type Item = Result<Token, LexError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -42,7 +46,7 @@ impl Iterator for Lexer {
             self.offset += size;
             match ch {
                 Some(ch) => {
-                    if let Some(tok) = self.map.map_char(ch) {
+                    if let Some(tok) = self.map.map(ch) {
                         return Some(Ok(tok));
                     }
                 }
@@ -60,7 +64,40 @@ impl Iterator for Lexer {
     }
 }
 
-impl const FusedIterator for Lexer {}
+impl const FusedIterator for Utf8Lexer {}
+
+#[derive(Clone, Debug)]
+pub struct ByteLexer {
+    src: Vec<u8>,
+    offset: usize,
+    map: Mapping<u8>,
+}
+
+impl ByteLexer {
+    #[inline]
+    pub const fn new(src: Vec<u8>, map: Mapping<u8>) -> Self {
+        ByteLexer { src, offset: 0, map }
+    }
+}
+
+impl Lexer for ByteLexer {}
+
+impl Iterator for ByteLexer {
+    type Item = Result<Token, LexError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.offset < self.src.len() {
+            let b = self.src[self.offset];
+            self.offset += 1;
+            if let Some(tok) = self.map.map(b) {
+                return Some(Ok(tok));
+            }
+        }
+        None
+    }
+}
+
+impl const FusedIterator for ByteLexer {}
 
 #[cfg(test)]
 mod tests {
@@ -69,7 +106,7 @@ mod tests {
 
     #[test]
     fn lex_tutorial() -> Result<(), LexError> {
-        let lex = Lexer::new(TUTORIAL_STL.as_bytes().to_owned(), CharMapping::STL);
+        let lex = Utf8Lexer::new(TUTORIAL_STL.as_bytes().to_owned(), Mapping::<char>::STL);
         let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
         assert_eq!(TUTORIAL_TOKENS, toks);
         Ok(())

@@ -7,6 +7,7 @@
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
 use std::fmt::{self, Debug, Formatter};
+use std::iter::FusedIterator;
 
 use crate::ws::token::{Token, TokenSeq};
 
@@ -197,6 +198,8 @@ impl const DoubleEndedIterator for TokenVec {
         }
     }
 }
+
+impl const FusedIterator for TokenVec {}
 
 impl Debug for TokenVec {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
