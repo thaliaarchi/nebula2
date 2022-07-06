@@ -13,7 +13,7 @@ use bstr::decode_utf8;
 
 use crate::ws::token::{Mapping, Token};
 
-pub trait Lexer: Iterator<Item = Result<Token, LexError>> {}
+pub trait Lexer = Iterator<Item = Result<Token, LexError>>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum LexError {
@@ -33,8 +33,6 @@ impl Utf8Lexer {
         Utf8Lexer { src, offset: 0, map }
     }
 }
-
-impl Lexer for Utf8Lexer {}
 
 impl Iterator for Utf8Lexer {
     type Item = Result<Token, LexError>;
@@ -80,8 +78,6 @@ impl ByteLexer {
     }
 }
 
-impl Lexer for ByteLexer {}
-
 impl Iterator for ByteLexer {
     type Item = Result<Token, LexError>;
 
@@ -98,17 +94,3 @@ impl Iterator for ByteLexer {
 }
 
 impl const FusedIterator for ByteLexer {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ws::tests::{TUTORIAL_STL, TUTORIAL_TOKENS};
-
-    #[test]
-    fn lex_tutorial() -> Result<(), LexError> {
-        let lex = Utf8Lexer::new(TUTORIAL_STL.as_bytes().to_owned(), Mapping::<char>::STL);
-        let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
-        assert_eq!(TUTORIAL_TOKENS, toks);
-        Ok(())
-    }
-}

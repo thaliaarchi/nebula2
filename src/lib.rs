@@ -7,6 +7,8 @@
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
 #![feature(
+    box_syntax,
+    concat_bytes,
     const_array_into_iter_constructors,
     const_convert,
     const_default_impls,
@@ -14,7 +16,9 @@
     const_intoiterator_identity,
     const_mut_refs,
     const_trait_impl,
-    inline_const
+    inline_const,
+    never_type,
+    trait_alias
 )]
 
 pub mod ws {

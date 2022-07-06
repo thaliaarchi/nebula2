@@ -8,7 +8,7 @@
 
 use std::iter::FusedIterator;
 
-use crate::ws::lex::{LexError, Lexer};
+use crate::ws::lex::LexError;
 use crate::ws::token::Token::{self, *};
 
 #[derive(Clone, Debug)]
@@ -48,8 +48,6 @@ impl BitLexer {
     }
 }
 
-impl Lexer for BitLexer {}
-
 impl Iterator for BitLexer {
     type Item = Result<Token, LexError>;
 
@@ -68,17 +66,3 @@ impl Iterator for BitLexer {
 }
 
 impl const FusedIterator for BitLexer {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ws::tests::{TUTORIAL_BITS, TUTORIAL_TOKENS};
-
-    #[test]
-    fn bit_lex_tutorial() -> Result<(), LexError> {
-        let lex = BitLexer::new(TUTORIAL_BITS.to_owned());
-        let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
-        assert_eq!(TUTORIAL_TOKENS, toks);
-        Ok(())
-    }
-}

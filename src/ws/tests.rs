@@ -8,10 +8,13 @@
 
 use bitvec::prelude::*;
 
-use crate::ws::inst::{Inst, Int, Sign, Uint};
-use crate::ws::token::Token::{self, *};
+use crate::ws::bit_pack::BitLexer;
+use crate::ws::inst::{Features, Inst, Int, Sign, Uint};
+use crate::ws::lex::{ByteLexer, LexError, Lexer, Utf8Lexer};
+use crate::ws::parse::{ParseTable, Parser};
+use crate::ws::token::{Mapping, Token, Token::*};
 
-pub const TUTORIAL_STL: &str = r"
+const TUTORIAL_STL: &[u8] = br"
 S S S T L                    push 1
 L S S S T S S S S T T L  label_C:
 S L S                        dup
@@ -30,20 +33,20 @@ S L L                        drop
 L L L                        end
 ";
 
-pub const TUTORIAL_TOKENS: &[Token] = &[
+const TUTORIAL_TOKENS: &[Token] = &[
     S, S, S, T, L, L, S, S, S, T, S, S, S, S, T, T, L, S, L, S, T, L, S, T, S, S, S, T, S, T, S, L,
     T, L, S, S, S, S, S, T, L, T, S, S, S, S, L, S, S, S, S, T, S, T, T, L, T, S, S, T, L, T, S, S,
     T, S, S, S, T, S, T, L, L, S, L, S, T, S, S, S, S, T, T, L, L, S, S, S, T, S, S, S, T, S, T, L,
     S, L, L, L, L, L,
 ];
 
-pub const TUTORIAL_BITS: &[u8] = &[
+const TUTORIAL_BITS: &[u8] = &[
     0b00010111, 0b10001000, 0b00101011, 0b01101011, 0b01000010, 0b01001110, 0b11000001, 0b01110000,
     0b01100001, 0b00101011, 0b10001011, 0b10001000, 0b01001011, 0b11011010, 0b00001010, 0b11110001,
     0b00001001, 0b01101111, 0b11111100,
 ];
 
-pub fn tutorial_insts() -> Vec<Inst> {
+fn get_tutorial_insts() -> Vec<Inst> {
     let label_c = Uint {
         bits: bitvec![0, 1, 0, 0, 0, 0, 1, 1],
     };
@@ -80,4 +83,51 @@ pub fn tutorial_insts() -> Vec<Inst> {
         Inst::Drop,
         Inst::End,
     ]
+}
+
+#[test]
+fn lex() -> Result<(), LexError> {
+    let lex = Utf8Lexer::new(TUTORIAL_STL.to_owned(), Mapping::<char>::STL);
+    let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
+    assert_eq!(TUTORIAL_TOKENS, toks);
+    Ok(())
+}
+
+#[test]
+fn byte_lex() -> Result<(), LexError> {
+    let lex = ByteLexer::new(TUTORIAL_STL.to_owned(), Mapping::<u8>::STL);
+    let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
+    assert_eq!(TUTORIAL_TOKENS, toks);
+    Ok(())
+}
+
+#[test]
+fn bit_lex() -> Result<(), LexError> {
+    let lex = BitLexer::new(TUTORIAL_BITS.to_owned());
+    let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
+    assert_eq!(TUTORIAL_TOKENS, toks);
+    Ok(())
+}
+
+#[test]
+fn parse() {
+    let lex = Utf8Lexer::new(TUTORIAL_STL.to_owned(), Mapping::<char>::STL);
+    let parser = Parser::new(lex, Features::all()).unwrap();
+    let insts = parser.collect::<Vec<_>>();
+    assert_eq!(get_tutorial_insts(), insts);
+}
+
+#[test]
+fn parse_dyn() {
+    let lexers: [Box<dyn Lexer>; 3] = [
+        box Utf8Lexer::new(TUTORIAL_STL.to_owned(), Mapping::<char>::STL),
+        box ByteLexer::new(TUTORIAL_STL.to_owned(), Mapping::<u8>::STL),
+        box BitLexer::new(TUTORIAL_BITS.to_owned()),
+    ];
+    let table = ParseTable::with_features(Features::all()).unwrap();
+    for lex in lexers {
+        let parser = table.clone().parser(lex);
+        let insts = parser.collect::<Vec<_>>();
+        assert_eq!(get_tutorial_insts(), insts);
+    }
 }

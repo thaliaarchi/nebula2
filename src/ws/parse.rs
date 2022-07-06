@@ -33,12 +33,7 @@ pub enum ParseError {
 
 impl<L: Lexer> Parser<L> {
     pub fn new(lex: L, features: Features) -> Result<Self, ParserError> {
-        let mut table = ParseTable::new();
-        for opcode in Opcode::iter() {
-            if opcode.feature().map_or(true, |f| features.contains(f)) {
-                table.register(opcode)?;
-            }
-        }
+        let table = ParseTable::with_features(features)?;
         Ok(Parser { table, lex })
     }
 
@@ -193,6 +188,21 @@ impl ParseTable {
         }
     }
 
+    pub fn with_features(features: Features) -> Result<Self, ParserError> {
+        let mut table = ParseTable::new();
+        for opcode in Opcode::iter() {
+            if opcode.feature().map_or(true, |f| features.contains(f)) {
+                table.register(opcode)?;
+            }
+        }
+        Ok(table)
+    }
+
+    #[inline]
+    pub fn parser<L: Lexer>(self, lex: L) -> Parser<L> {
+        Parser { table: self, lex }
+    }
+
     #[inline]
     pub fn get(&self, seq: TokenSeq) -> &ParseEntry {
         if seq <= Self::DENSE_MAX {
@@ -242,23 +252,6 @@ impl ParseTable {
                 return Err(ParserError::Conflict { seq, opcodes });
             }
         }
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ws::lex::Utf8Lexer;
-    use crate::ws::tests::{tutorial_insts, TUTORIAL_STL};
-    use crate::ws::token::Mapping;
-
-    #[test]
-    fn parse_tutorial() -> Result<(), ParseError> {
-        let lex = Utf8Lexer::new(TUTORIAL_STL.as_bytes().to_owned(), Mapping::<char>::STL);
-        let parser = Parser::new(lex, Features::all()).unwrap();
-        let insts = parser.collect::<Vec<_>>();
-        assert_eq!(tutorial_insts(), insts);
         Ok(())
     }
 }
