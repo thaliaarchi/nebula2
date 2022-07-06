@@ -13,7 +13,8 @@ use enumset::{EnumSet, EnumSetType};
 use paste::paste;
 use strum::{Display, EnumIter, IntoStaticStr};
 
-use crate::ws::parse::ParseError;
+use crate::ws::lex::Lexer;
+use crate::ws::parse::{ParseError, Parser};
 use crate::ws::token::Token::*;
 use crate::ws::token_vec::{token_vec, TokenVec};
 
@@ -103,6 +104,17 @@ macro_rules! insts {
         }
 
         impl Opcode {
+            pub(crate) fn parse_arg<L: Lexer>(&self, parser: &mut Parser<L>) -> Inst {
+                paste! {
+                    match self {
+                        $(Opcode::$opcode => map_or!($($arg)?,
+                            $(parser.[<parse_ $arg:snake>](Opcode::$opcode).map_or_else(Inst::from, Inst::$opcode))?,
+                            Inst::$opcode
+                        )),+,
+                    }
+                }
+            }
+
             #[inline]
             pub const fn tokens(&self) -> TokenVec {
                 match self {

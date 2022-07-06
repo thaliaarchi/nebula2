@@ -39,63 +39,10 @@ impl<L: Lexer> Parser<L> {
 
     #[inline]
     fn parse_arg(&mut self, opcode: Opcode) -> Inst {
-        match opcode {
-            Opcode::Push => match self.parse_int(Opcode::Push) {
-                Ok(arg) => Inst::Push(arg),
-                Err(err) => Inst::from(err),
-            },
-            Opcode::Dup => Inst::Dup,
-            Opcode::Copy => match self.parse_int(Opcode::Copy) {
-                Ok(arg) => Inst::Copy(arg),
-                Err(err) => Inst::from(err),
-            },
-            Opcode::Swap => Inst::Swap,
-            Opcode::Drop => Inst::Drop,
-            Opcode::Slide => match self.parse_int(Opcode::Slide) {
-                Ok(arg) => Inst::Slide(arg),
-                Err(err) => Inst::from(err),
-            },
-            Opcode::Add => Inst::Add,
-            Opcode::Sub => Inst::Sub,
-            Opcode::Mul => Inst::Mul,
-            Opcode::Div => Inst::Div,
-            Opcode::Mod => Inst::Mod,
-            Opcode::Store => Inst::Store,
-            Opcode::Retrieve => Inst::Retrieve,
-            Opcode::Label => match self.parse_uint(Opcode::Label) {
-                Ok(arg) => Inst::Label(arg),
-                Err(err) => Inst::from(err),
-            },
-            Opcode::Call => match self.parse_uint(Opcode::Call) {
-                Ok(arg) => Inst::Call(arg),
-                Err(err) => Inst::from(err),
-            },
-            Opcode::Jmp => match self.parse_uint(Opcode::Jmp) {
-                Ok(arg) => Inst::Jmp(arg),
-                Err(err) => Inst::from(err),
-            },
-            Opcode::Jz => match self.parse_uint(Opcode::Jz) {
-                Ok(arg) => Inst::Jz(arg),
-                Err(err) => Inst::from(err),
-            },
-            Opcode::Jn => match self.parse_uint(Opcode::Jn) {
-                Ok(arg) => Inst::Jn(arg),
-                Err(err) => Inst::from(err),
-            },
-            Opcode::Ret => Inst::Ret,
-            Opcode::End => Inst::End,
-            Opcode::Printc => Inst::Printc,
-            Opcode::Printi => Inst::Printi,
-            Opcode::Readc => Inst::Readc,
-            Opcode::Readi => Inst::Readi,
-            Opcode::Shuffle => Inst::Shuffle,
-            Opcode::DumpStack => Inst::DumpStack,
-            Opcode::DumpHeap => Inst::DumpHeap,
-            Opcode::DumpTrace => Inst::DumpTrace,
-        }
+        opcode.parse_arg(self)
     }
 
-    fn parse_int(&mut self, opcode: Opcode) -> Result<Int, ParseError> {
+    pub(crate) fn parse_int(&mut self, opcode: Opcode) -> Result<Int, ParseError> {
         let sign = match self.lex.next() {
             Some(Ok(S)) => Sign::Pos,
             Some(Ok(T)) => Sign::Neg,
@@ -111,7 +58,7 @@ impl<L: Lexer> Parser<L> {
         Ok(Int { sign, bits })
     }
 
-    fn parse_uint(&mut self, opcode: Opcode) -> Result<Uint, ParseError> {
+    pub(crate) fn parse_uint(&mut self, opcode: Opcode) -> Result<Uint, ParseError> {
         let bits = self.parse_bitvec(opcode)?;
         Ok(Uint { bits })
     }
