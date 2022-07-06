@@ -39,10 +39,13 @@ pub struct Uint {
 pub type Features = EnumSet<Feature>;
 
 #[derive(Debug, Hash)]
-#[derive(EnumSetType)]
+#[derive(Display, EnumSetType)]
+#[strum(serialize_all = "snake_case")]
 pub enum Feature {
+    #[strum(serialize = "wspace 0.3")]
     Wspace0_3,
     Shuffle,
+    #[strum(serialize = "dump_stack/dump_heap")]
     DumpStackHeap,
     DumpTrace,
 }
