@@ -14,8 +14,7 @@ use strum::IntoEnumIterator;
 
 use crate::ws::inst::{Features, Inst, Int, Opcode, Sign, Uint};
 use crate::ws::lex::{LexError, Lexer};
-use crate::ws::token::{Token::*, TokenSeq};
-use crate::ws::token_vec::token_vec;
+use crate::ws::token::{token_vec, Token::*, TokenSeq};
 
 #[derive(Clone, Debug)]
 pub struct Parser<L: Lexer> {

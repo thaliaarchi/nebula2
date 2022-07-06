@@ -227,6 +227,7 @@ impl const PartialEq for TokenVec {
     }
 }
 
+#[macro_export]
 macro_rules! token_vec[
     (@tok S) => { $crate::ws::token::Token::S };
     (@tok T) => { $crate::ws::token::Token::T };
@@ -237,4 +238,4 @@ macro_rules! token_vec[
         $crate::ws::token_vec::TokenVec::from(&[$(token_vec!(@tok $tok)),+])
     };
 ];
-pub(crate) use token_vec;
+pub use token_vec;

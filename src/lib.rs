@@ -27,7 +27,7 @@ pub mod ws {
     pub mod lex;
     pub mod parse;
     pub mod token;
-    pub mod token_vec;
+    mod token_vec;
 
     #[cfg(test)]
     mod tests;

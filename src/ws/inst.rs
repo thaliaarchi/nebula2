@@ -15,8 +15,7 @@ use strum::{Display, EnumIter, IntoStaticStr};
 
 use crate::ws::lex::Lexer;
 use crate::ws::parse::{ParseError, Parser};
-use crate::ws::token::Token::*;
-use crate::ws::token_vec::{token_vec, TokenVec};
+use crate::ws::token::{token_vec, Token::*, TokenVec};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Int {

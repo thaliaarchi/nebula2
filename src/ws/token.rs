@@ -8,7 +8,7 @@
 
 use std::mem;
 
-use crate::ws::token_vec::TokenVec;
+pub use crate::ws::token_vec::{token_vec, TokenVec};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -138,7 +138,6 @@ impl const From<TokenVec> for TokenSeq {
 mod tests {
     use super::Token::*;
     use super::*;
-    use crate::ws::token_vec::token_vec;
 
     #[test]
     fn convert_token_seq() {
