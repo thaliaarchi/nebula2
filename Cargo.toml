@@ -19,6 +19,7 @@ bstr = "0.2.17"
 clap = { version = "3.2.8", features = ["deprecated", "derive", "regex", "unicode", "unstable-grouped", "unstable-replace", "unstable-v4", "wrap_help"] }
 enumset = { version = "1.0.11", features = ["std"] }
 paste = "1.0.7"
+rug = { version = "1.16.0", default-features = false, features = ["integer", "num-traits"] }
 strum = { version = "0.24.1", features = ["derive"] }
 
 [profile.release]

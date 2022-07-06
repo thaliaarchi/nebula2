@@ -11,6 +11,7 @@ use std::fmt::{self, Display, Formatter};
 use bitvec::prelude::BitVec;
 use enumset::{EnumSet, EnumSetType};
 use paste::paste;
+use rug::Integer;
 use strum::{Display, EnumIter, IntoStaticStr};
 
 use crate::ws::lex::Lexer;
@@ -19,8 +20,8 @@ use crate::ws::token::{token_vec, Token::*, TokenVec};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Int {
-    pub sign: Sign,
     pub bits: BitVec,
+    pub int: Integer,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -31,8 +32,10 @@ pub enum Sign {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Uint {
+pub struct Label {
     pub bits: BitVec,
+    pub num: Option<Integer>,
+    pub name: Option<String>,
 }
 
 pub type Features = EnumSet<Feature>;
@@ -150,6 +153,19 @@ impl const From<ParseError> for InstError {
     }
 }
 
+impl Int {
+    #[inline]
+    pub fn sign(&self) -> Sign {
+        if self.bits.len() == 0 {
+            Sign::Empty
+        } else if self.bits[0] {
+            Sign::Neg
+        } else {
+            Sign::Pos
+        }
+    }
+}
+
 insts! {
     [S S; Int] => Push,
     [S L S] => Dup,
@@ -164,11 +180,11 @@ insts! {
     [T S T T] => Mod,
     [T T S] => Store,
     [T T T] => Retrieve,
-    [L S S; Uint] => Label,
-    [L S T; Uint] => Call,
-    [L S L; Uint] => Jmp,
-    [L T S; Uint] => Jz,
-    [L T T; Uint] => Jn,
+    [L S S; Label] => Label,
+    [L S T; Label] => Call,
+    [L S L; Label] => Jmp,
+    [L T S; Label] => Jz,
+    [L T T; Label] => Jn,
     [L T L] => Ret,
     [L L L] => End,
     [T L S S] => Printc,

@@ -26,6 +26,7 @@ pub mod ws {
     pub mod inst;
     pub mod lex;
     pub mod parse;
+    pub mod program;
     pub mod token;
     mod token_vec;
 

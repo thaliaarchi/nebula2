@@ -10,9 +10,10 @@ use std::collections::HashMap;
 use std::iter::FusedIterator;
 
 use bitvec::prelude::BitVec;
+use rug::Integer;
 use strum::IntoEnumIterator;
 
-use crate::ws::inst::{Features, Inst, Int, Opcode, Sign, Uint};
+use crate::ws::inst::{Features, Inst, Int, Label, Opcode};
 use crate::ws::lex::{LexError, Lexer};
 use crate::ws::token::{token_vec, Token::*, TokenSeq};
 
@@ -42,24 +43,15 @@ impl<L: Lexer> Parser<L> {
     }
 
     pub(crate) fn parse_int(&mut self, opcode: Opcode) -> Result<Int, ParseError> {
-        let sign = match self.lex.next() {
-            Some(Ok(S)) => Sign::Pos,
-            Some(Ok(T)) => Sign::Neg,
-            Some(Ok(L)) => Sign::Empty,
-            Some(Err(err)) => return Err(ParseError::LexError(err, opcode.tokens().into())),
-            None => return Err(ParseError::UnterminatedArg(opcode)),
-        };
-        let bits = if sign == Sign::Empty {
-            BitVec::new()
-        } else {
-            self.parse_bitvec(opcode)?
-        };
-        Ok(Int { sign, bits })
+        let bits = self.parse_bitvec(opcode)?;
+        // TODO: Convert int
+        Ok(Int { bits, int: Integer::new() })
     }
 
-    pub(crate) fn parse_uint(&mut self, opcode: Opcode) -> Result<Uint, ParseError> {
+    pub(crate) fn parse_label(&mut self, opcode: Opcode) -> Result<Label, ParseError> {
         let bits = self.parse_bitvec(opcode)?;
-        Ok(Uint { bits })
+        // TODO: Convert num and name
+        Ok(Label { bits, num: None, name: None })
     }
 
     fn parse_bitvec(&mut self, opcode: Opcode) -> Result<BitVec, ParseError> {

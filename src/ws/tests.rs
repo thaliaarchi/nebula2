@@ -7,9 +7,10 @@
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
 use bitvec::prelude::*;
+use rug::Integer;
 
 use crate::ws::bit_pack::BitLexer;
-use crate::ws::inst::{Features, Inst, Int, Sign, Uint};
+use crate::ws::inst::{Features, Inst, Int, Label};
 use crate::ws::lex::{ByteLexer, LexError, Lexer, Utf8Lexer};
 use crate::ws::parse::{ParseTable, Parser};
 use crate::ws::token::{Mapping, Token, Token::*};
@@ -47,34 +48,38 @@ const TUTORIAL_BITS: &[u8] = &[
 ];
 
 fn get_tutorial_insts() -> Vec<Inst> {
-    let label_c = Uint {
+    let label_c = Label {
         bits: bitvec![0, 1, 0, 0, 0, 0, 1, 1],
+        num: None,
+        name: None,
     };
-    let label_e = Uint {
+    let label_e = Label {
         bits: bitvec![0, 1, 0, 0, 0, 1, 0, 1],
+        num: None,
+        name: None,
     };
     vec![
         Inst::Push(Int {
-            sign: Sign::Pos,
-            bits: bitvec![1],
+            bits: bitvec![0, 1],
+            int: Integer::new(),
         }),
         Inst::Label(label_c.clone()),
         Inst::Dup,
         Inst::Printi,
         Inst::Push(Int {
-            sign: Sign::Pos,
-            bits: bitvec![1, 0, 1, 0],
+            bits: bitvec![0, 1, 0, 1, 0],
+            int: Integer::new(),
         }),
         Inst::Printc,
         Inst::Push(Int {
-            sign: Sign::Pos,
-            bits: bitvec![1],
+            bits: bitvec![0, 1],
+            int: Integer::new(),
         }),
         Inst::Add,
         Inst::Dup,
         Inst::Push(Int {
-            sign: Sign::Pos,
-            bits: bitvec![1, 0, 1, 1],
+            bits: bitvec![0, 1, 0, 1, 1],
+            int: Integer::new(),
         }),
         Inst::Sub,
         Inst::Jz(label_e.clone()),
