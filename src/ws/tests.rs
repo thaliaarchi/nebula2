@@ -87,7 +87,7 @@ fn get_tutorial_insts() -> Vec<Inst> {
 
 #[test]
 fn lex() -> Result<(), LexError> {
-    let lex = Utf8Lexer::new(TUTORIAL_STL.to_owned(), Mapping::<char>::STL);
+    let lex = Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL);
     let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
     assert_eq!(TUTORIAL_TOKENS, toks);
     Ok(())
@@ -95,7 +95,7 @@ fn lex() -> Result<(), LexError> {
 
 #[test]
 fn byte_lex() -> Result<(), LexError> {
-    let lex = ByteLexer::new(TUTORIAL_STL.to_owned(), Mapping::<u8>::STL);
+    let lex = ByteLexer::new(TUTORIAL_STL, Mapping::<u8>::STL);
     let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
     assert_eq!(TUTORIAL_TOKENS, toks);
     Ok(())
@@ -103,7 +103,7 @@ fn byte_lex() -> Result<(), LexError> {
 
 #[test]
 fn bit_lex() -> Result<(), LexError> {
-    let lex = BitLexer::new(TUTORIAL_BITS.to_owned());
+    let lex = BitLexer::new(TUTORIAL_BITS);
     let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
     assert_eq!(TUTORIAL_TOKENS, toks);
     Ok(())
@@ -111,7 +111,7 @@ fn bit_lex() -> Result<(), LexError> {
 
 #[test]
 fn parse() {
-    let lex = Utf8Lexer::new(TUTORIAL_STL.to_owned(), Mapping::<char>::STL);
+    let lex = Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL);
     let parser = Parser::new(lex, Features::all()).unwrap();
     let insts = parser.collect::<Vec<_>>();
     assert_eq!(get_tutorial_insts(), insts);
@@ -120,9 +120,9 @@ fn parse() {
 #[test]
 fn parse_dyn() {
     let lexers: [Box<dyn Lexer>; 3] = [
-        box Utf8Lexer::new(TUTORIAL_STL.to_owned(), Mapping::<char>::STL),
-        box ByteLexer::new(TUTORIAL_STL.to_owned(), Mapping::<u8>::STL),
-        box BitLexer::new(TUTORIAL_BITS.to_owned()),
+        box Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL),
+        box ByteLexer::new(TUTORIAL_STL, Mapping::<u8>::STL),
+        box BitLexer::new(TUTORIAL_BITS),
     ];
     let table = ParseTable::with_features(Features::all()).unwrap();
     for lex in lexers {

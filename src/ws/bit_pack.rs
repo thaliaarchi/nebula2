@@ -12,22 +12,23 @@ use crate::ws::lex::LexError;
 use crate::ws::token::Token::{self, *};
 
 #[derive(Clone, Debug)]
-pub struct BitLexer {
-    src: Vec<u8>,
+pub struct BitLexer<'a> {
+    src: &'a [u8],
     byte_offset: usize,
     bit_offset: u8,
 }
 
-impl BitLexer {
+impl<'a> BitLexer<'a> {
     #[inline]
-    pub const fn new(src: Vec<u8>) -> Self {
+    pub const fn new<B: ~const AsRef<[u8]> + ?Sized>(src: &'a B) -> Self {
         BitLexer {
-            src,
+            src: src.as_ref(),
             byte_offset: 0,
             bit_offset: 7,
         }
     }
 
+    #[inline]
     fn next_bit(&mut self) -> Option<bool> {
         if self.byte_offset >= self.src.len() {
             return None;
@@ -48,10 +49,9 @@ impl BitLexer {
     }
 }
 
-impl Iterator for BitLexer {
+impl<'a> Iterator for BitLexer<'a> {
     type Item = Result<Token, LexError>;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.next_bit() {
             Some(true) => match self.next_bit() {
@@ -65,4 +65,4 @@ impl Iterator for BitLexer {
     }
 }
 
-impl const FusedIterator for BitLexer {}
+impl<'a> const FusedIterator for BitLexer<'a> {}

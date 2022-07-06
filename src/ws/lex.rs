@@ -21,20 +21,24 @@ pub enum LexError {
 }
 
 #[derive(Clone, Debug)]
-pub struct Utf8Lexer {
-    src: Vec<u8>,
+pub struct Utf8Lexer<'a> {
+    src: &'a [u8],
     offset: usize,
     map: Mapping<char>,
 }
 
-impl Utf8Lexer {
+impl<'a> Utf8Lexer<'a> {
     #[inline]
-    pub const fn new(src: Vec<u8>, map: Mapping<char>) -> Self {
-        Utf8Lexer { src, offset: 0, map }
+    pub const fn new<B: ~const AsRef<[u8]> + ?Sized>(src: &'a B, map: Mapping<char>) -> Self {
+        Utf8Lexer {
+            src: src.as_ref(),
+            offset: 0,
+            map,
+        }
     }
 }
 
-impl Iterator for Utf8Lexer {
+impl<'a> Iterator for Utf8Lexer<'a> {
     type Item = Result<Token, LexError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -62,23 +66,27 @@ impl Iterator for Utf8Lexer {
     }
 }
 
-impl const FusedIterator for Utf8Lexer {}
+impl<'a> const FusedIterator for Utf8Lexer<'a> {}
 
 #[derive(Clone, Debug)]
-pub struct ByteLexer {
-    src: Vec<u8>,
+pub struct ByteLexer<'a> {
+    src: &'a [u8],
     offset: usize,
     map: Mapping<u8>,
 }
 
-impl ByteLexer {
+impl<'a> ByteLexer<'a> {
     #[inline]
-    pub const fn new(src: Vec<u8>, map: Mapping<u8>) -> Self {
-        ByteLexer { src, offset: 0, map }
+    pub const fn new<B: ~const AsRef<[u8]> + ?Sized>(src: &'a B, map: Mapping<u8>) -> Self {
+        ByteLexer {
+            src: src.as_ref(),
+            offset: 0,
+            map,
+        }
     }
 }
 
-impl Iterator for ByteLexer {
+impl<'a> Iterator for ByteLexer<'a> {
     type Item = Result<Token, LexError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -93,4 +101,4 @@ impl Iterator for ByteLexer {
     }
 }
 
-impl const FusedIterator for ByteLexer {}
+impl<'a> const FusedIterator for ByteLexer<'a> {}
