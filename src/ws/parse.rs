@@ -10,10 +10,9 @@ use std::collections::HashMap;
 use std::iter::FusedIterator;
 
 use bitvec::prelude::BitVec;
-use rug::Integer;
 use strum::IntoEnumIterator;
 
-use crate::ws::inst::{Features, Inst, Int, Label, Opcode};
+use crate::ws::inst::{Features, Inst, Opcode, RawInst};
 use crate::ws::lex::{LexError, Lexer};
 use crate::ws::token::{token_vec, Token::*, TokenSeq};
 
@@ -37,24 +36,7 @@ impl<L: Lexer> Parser<L> {
         Ok(Parser { table, lex })
     }
 
-    #[inline]
-    fn parse_arg(&mut self, opcode: Opcode) -> Inst {
-        opcode.parse_arg(self)
-    }
-
-    pub(crate) fn parse_int(&mut self, opcode: Opcode) -> Result<Int, ParseError> {
-        let bits = self.parse_bitvec(opcode)?;
-        // TODO: Convert int
-        Ok(Int { bits, int: Integer::new() })
-    }
-
-    pub(crate) fn parse_label(&mut self, opcode: Opcode) -> Result<Label, ParseError> {
-        let bits = self.parse_bitvec(opcode)?;
-        // TODO: Convert num and name
-        Ok(Label { bits, num: None, name: None })
-    }
-
-    fn parse_bitvec(&mut self, opcode: Opcode) -> Result<BitVec, ParseError> {
+    pub(crate) fn parse_bitvec(&mut self, opcode: Opcode) -> Result<BitVec, ParseError> {
         let mut bits = BitVec::new();
         loop {
             match self.lex.next() {
@@ -69,7 +51,7 @@ impl<L: Lexer> Parser<L> {
 }
 
 impl<L: Lexer> Iterator for Parser<L> {
-    type Item = Inst;
+    type Item = RawInst;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut seq = TokenSeq::new();

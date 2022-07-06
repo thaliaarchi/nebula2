@@ -6,16 +6,50 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
-use crate::ws::inst::Inst;
+use bitvec::prelude::BitVec;
+use rug::Integer;
+
+use crate::ws::inst;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Program {
     insts: Vec<Inst>,
-    labels: Vec<LabelData>,
+    labels: Vec<Label>,
+}
+
+pub type Inst = inst::Inst<Int, usize>;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Int {
+    bits: BitVec,
+    int: Integer,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Sign {
+    Pos,
+    Neg,
+    Empty,
+}
+
+impl Int {
+    #[inline]
+    pub fn sign(&self) -> Sign {
+        if self.bits.len() == 0 {
+            Sign::Empty
+        } else if self.bits[0] {
+            Sign::Neg
+        } else {
+            Sign::Pos
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct LabelData {
+pub struct Label {
+    bits: BitVec,
+    num: Option<Integer>,
+    name: Option<String>,
     id: usize,
     defs: Vec<usize>,
     uses: Vec<usize>,

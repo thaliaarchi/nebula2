@@ -11,31 +11,17 @@ use std::fmt::{self, Display, Formatter};
 use bitvec::prelude::BitVec;
 use enumset::{EnumSet, EnumSetType};
 use paste::paste;
-use rug::Integer;
 use strum::{Display, EnumIter, IntoStaticStr};
 
 use crate::ws::lex::Lexer;
 use crate::ws::parse::{ParseError, Parser};
 use crate::ws::token::{token_vec, Token::*, TokenVec};
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Int {
-    pub bits: BitVec,
-    pub int: Integer,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Sign {
-    Pos,
-    Neg,
-    Empty,
-}
+pub type RawInst = Inst<BitVec, BitVec>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Label {
-    pub bits: BitVec,
-    pub num: Option<Integer>,
-    pub name: Option<String>,
+pub enum InstError {
+    ParseError(ParseError),
 }
 
 pub type Features = EnumSet<Feature>;
@@ -52,13 +38,8 @@ pub enum Feature {
     DumpTrace,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum InstError {
-    ParseError(ParseError),
-}
-
 macro_rules! map(
-    ( , $then:tt) => { };
+    ( , $then:tt) => {};
     ($optional:tt, $then:tt) => { $then };
 );
 
@@ -70,12 +51,12 @@ macro_rules! map_or(
 macro_rules! insts {
     ($([$($seq:expr)+ $(; $arg:ident)?] $(if $feature:ident)? => $opcode:ident),+$(,)?) => {
         #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-        pub enum Inst {
+        pub enum Inst<Int, Label> {
             $($opcode $(($arg))?),+,
             Error(InstError),
         }
 
-        impl Inst {
+        impl RawInst {
             #[inline]
             pub const fn opcode(&self) -> Opcode {
                 match self {
@@ -85,7 +66,7 @@ macro_rules! insts {
             }
         }
 
-        impl Display for Inst {
+        impl Display for RawInst {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 // TODO: uses Debug for arguments
                 f.write_str(self.opcode().into())?;
@@ -109,17 +90,6 @@ macro_rules! insts {
         }
 
         impl Opcode {
-            pub(crate) fn parse_arg<L: Lexer>(&self, parser: &mut Parser<L>) -> Inst {
-                paste! {
-                    match self {
-                        $(Opcode::$opcode => map_or!($($arg)?,
-                            $(parser.[<parse_ $arg:snake>](Opcode::$opcode).map_or_else(Inst::from, Inst::$opcode))?,
-                            Inst::$opcode
-                        )),+,
-                    }
-                }
-            }
-
             #[inline]
             pub const fn tokens(&self) -> TokenVec {
                 match self {
@@ -136,10 +106,21 @@ macro_rules! insts {
                 }
             }
         }
+
+        impl<L: Lexer> Parser<L> {
+            pub(crate) fn parse_arg(&mut self, opcode: Opcode) -> RawInst {
+                match opcode {
+                    $(Opcode::$opcode => map_or!($($arg)?,
+                        self.parse_bitvec(opcode).map_or_else(Inst::from, Inst::$opcode),
+                        Inst::$opcode
+                    )),+,
+                }
+            }
+        }
     }
 }
 
-impl<E: Into<InstError>> const From<E> for Inst {
+impl<I, L, E: Into<InstError>> const From<E> for Inst<I, L> {
     #[inline]
     fn from(err: E) -> Self {
         Inst::Error(err.into())
@@ -150,19 +131,6 @@ impl const From<ParseError> for InstError {
     #[inline]
     fn from(err: ParseError) -> Self {
         InstError::ParseError(err)
-    }
-}
-
-impl Int {
-    #[inline]
-    pub fn sign(&self) -> Sign {
-        if self.bits.len() == 0 {
-            Sign::Empty
-        } else if self.bits[0] {
-            Sign::Neg
-        } else {
-            Sign::Pos
-        }
     }
 }
 

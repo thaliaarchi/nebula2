@@ -7,10 +7,9 @@
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
 use bitvec::prelude::*;
-use rug::Integer;
 
 use crate::ws::bit_pack::BitLexer;
-use crate::ws::inst::{Features, Inst, Int, Label};
+use crate::ws::inst::{Features, Inst, RawInst};
 use crate::ws::lex::{ByteLexer, LexError, Lexer, Utf8Lexer};
 use crate::ws::parse::{ParseTable, Parser};
 use crate::ws::token::{Mapping, Token, Token::*};
@@ -47,44 +46,22 @@ const TUTORIAL_BITS: &[u8] = &[
     0b00001001, 0b01101111, 0b11111100,
 ];
 
-fn get_tutorial_insts() -> Vec<Inst> {
-    let label_c = Label {
-        bits: bitvec![0, 1, 0, 0, 0, 0, 1, 1],
-        num: None,
-        name: None,
-    };
-    let label_e = Label {
-        bits: bitvec![0, 1, 0, 0, 0, 1, 0, 1],
-        num: None,
-        name: None,
-    };
+fn get_tutorial_insts() -> Vec<RawInst> {
     vec![
-        Inst::Push(Int {
-            bits: bitvec![0, 1],
-            int: Integer::new(),
-        }),
-        Inst::Label(label_c.clone()),
+        Inst::Push(bitvec![0, 1]),
+        Inst::Label(bitvec![0, 1, 0, 0, 0, 0, 1, 1]),
         Inst::Dup,
         Inst::Printi,
-        Inst::Push(Int {
-            bits: bitvec![0, 1, 0, 1, 0],
-            int: Integer::new(),
-        }),
+        Inst::Push(bitvec![0, 1, 0, 1, 0]),
         Inst::Printc,
-        Inst::Push(Int {
-            bits: bitvec![0, 1],
-            int: Integer::new(),
-        }),
+        Inst::Push(bitvec![0, 1]),
         Inst::Add,
         Inst::Dup,
-        Inst::Push(Int {
-            bits: bitvec![0, 1, 0, 1, 1],
-            int: Integer::new(),
-        }),
+        Inst::Push(bitvec![0, 1, 0, 1, 1]),
         Inst::Sub,
-        Inst::Jz(label_e.clone()),
-        Inst::Jmp(label_c),
-        Inst::Label(label_e),
+        Inst::Jz(bitvec![0, 1, 0, 0, 0, 1, 0, 1]),
+        Inst::Jmp(bitvec![0, 1, 0, 0, 0, 0, 1, 1]),
+        Inst::Label(bitvec![0, 1, 0, 0, 0, 1, 0, 1]),
         Inst::Drop,
         Inst::End,
     ]
