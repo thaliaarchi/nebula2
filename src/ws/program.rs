@@ -8,7 +8,7 @@
 
 use std::collections::{hash_map::Entry, HashMap};
 use std::mem::{ManuallyDrop, MaybeUninit};
-use std::ops::{Index, IndexMut};
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use bitvec::prelude::BitVec;
 use rug::Integer;
@@ -68,8 +68,17 @@ id_index!(LabelId(u32) indexes LabelData in Vec<LabelData>, [LabelData]);
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Int {
-    bits: BitVec,
+    raw: IntSource,
     int: Integer,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum IntSource {
+    /// Bit representation with the sign in the first bit (if nonempty) and
+    /// possible leading zeros.
+    Bits(BitVec),
+    /// String representation from Whitespace assembly source.
+    String(String),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -81,10 +90,18 @@ pub enum Sign {
 
 impl Int {
     #[inline]
-    pub fn sign(&self) -> Sign {
-        if self.bits.len() == 0 {
+    pub fn sign(&self) -> Option<Sign> {
+        match &self.raw {
+            IntSource::Bits(bits) => Some(Self::bits_sign(bits)),
+            IntSource::String(_) => None,
+        }
+    }
+
+    #[inline]
+    fn bits_sign(bits: &BitVec) -> Sign {
+        if bits.len() == 0 {
             Sign::Empty
-        } else if self.bits[0] {
+        } else if bits[0] {
             Sign::Neg
         } else {
             Sign::Pos
@@ -95,16 +112,39 @@ impl Int {
 impl From<BitVec> for Int {
     #[inline]
     fn from(bits: BitVec) -> Self {
-        Int { bits, int: Integer::new() } // TODO
+        Int {
+            raw: IntSource::Bits(bits),
+            int: Integer::new(), // TODO
+        }
+    }
+}
+
+impl Deref for Int {
+    type Target = Integer;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.int
+    }
+}
+
+impl DerefMut for Int {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.int
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct LabelData {
-    bits: BitVec,
-    num: Option<Integer>,
-    name: Option<String>,
     id: LabelId,
+    /// Canonical bit representation.
+    bits: BitVec,
+    /// Unsigned integer representation, if the bit representation has no
+    /// leading zeros and is non-empty.
+    uint: Option<Integer>,
+    /// Names for defs/uses that come from Whitespace assembly.
+    names: Vec<(InstId, String)>,
     defs: SmallVec<[InstId; 4]>,
     uses: SmallVec<[InstId; 4]>,
 }
@@ -131,21 +171,34 @@ pub enum LabelOrder {
 }
 
 impl LabelData {
-    pub fn new(bits: BitVec, id: LabelId, inst: InstId, is_def: bool) -> Self {
-        let mut label = LabelData {
-            bits,
-            num: None,  // TODO
-            name: None, // TODO
+    pub fn new(id: LabelId, bits: BitVec) -> Self {
+        LabelData {
             id,
+            bits,
+            uint: None, // TODO
+            names: Vec::new(),
             defs: SmallVec::new(),
             uses: SmallVec::new(),
-        };
-        if is_def {
-            label.defs.push(inst);
+        }
+    }
+
+    #[inline]
+    pub fn push_def_or_use(&mut self, inst: InstId, opcode: Opcode) {
+        if opcode == Opcode::Label {
+            self.push_def(inst);
         } else {
-            label.uses.push(inst);
-        };
-        label
+            self.push_use(inst);
+        }
+    }
+
+    #[inline]
+    pub fn push_def(&mut self, inst: InstId) {
+        self.defs.push(inst);
+    }
+
+    #[inline]
+    pub fn push_use(&mut self, inst: InstId) {
+        self.uses.push(inst);
     }
 }
 
@@ -229,18 +282,15 @@ impl LabelResolver {
         match self.bits_map.entry(bits.clone()) {
             Entry::Occupied(entry) => {
                 let id = *entry.get();
-                if opcode == Opcode::Label {
-                    self.labels[id].defs.push(inst);
-                } else {
-                    self.labels[id].uses.push(inst);
-                }
+                self.labels[id].push_def_or_use(inst, opcode);
                 id
             }
             Entry::Vacant(entry) => {
-                let id = LabelId(self.labels.len() as u32);
-                let label = LabelData::new(bits, id, inst, opcode == Opcode::Label);
-                entry.insert(id);
+                let id = LabelId::from(self.labels.len());
+                let mut label = LabelData::new(id, bits);
+                label.push_def_or_use(inst, opcode);
                 self.labels.push(label);
+                entry.insert(id);
                 id
             }
         }
