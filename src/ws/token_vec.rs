@@ -9,6 +9,8 @@
 use std::fmt::{self, Debug, Formatter};
 use std::iter::FusedIterator;
 
+use bitvec::prelude::BitVec;
+
 use crate::ws::token::{Token, TokenSeq};
 
 const LEN_BITS: u64 = 6;
@@ -86,6 +88,20 @@ impl TokenVec {
     pub const fn append_front(&mut self, toks: &[Token]) {
         self.extend_front(toks.len());
         self.0 |= Self::bits(toks) << LEN_BITS;
+    }
+
+    #[inline]
+    pub fn append_bits(&mut self, bits: &BitVec) {
+        for bit in bits {
+            self.push(if *bit { Token::T } else { Token::S });
+        }
+    }
+
+    #[inline]
+    pub fn append_bits_front(&mut self, bits: &BitVec) {
+        for bit in bits {
+            self.push_front(if *bit { Token::T } else { Token::S });
+        }
     }
 
     #[inline]

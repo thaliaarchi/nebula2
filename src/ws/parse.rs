@@ -22,6 +22,7 @@ use crate::ws::token::{token_vec, Token::*, TokenSeq, TokenVec};
 pub struct Parser<L: Lexer> {
     table: ParseTable,
     lex: L,
+    partial: Option<PartialState>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -32,21 +33,32 @@ pub enum ParseError {
     UnterminatedArg(Opcode),
 }
 
+#[derive(Clone, Debug)]
+enum PartialState {
+    ParsingOpcode(TokenSeq),
+    ParsingArg(Opcode, BitVec),
+}
+
 impl<L: Lexer> Parser<L> {
     pub fn new(lex: L, features: Features) -> Result<Self, ParserError> {
         let table = ParseTable::with_features(features)?;
-        Ok(Parser { table, lex })
+        Ok(Parser { table, lex, partial: None })
     }
 
-    fn parse_arg(&mut self, opcode: Opcode) -> RawInst {
+    fn parse_arg(&mut self, opcode: Opcode, partial: Option<BitVec>) -> RawInst {
         Inst::from(opcode).map_arg(|opcode, arg| {
-            let mut bits = BitVec::new();
+            let mut bits = partial.unwrap_or_else(|| BitVec::with_capacity(64));
             loop {
                 match self.lex.next() {
                     Some(Ok(S)) => bits.push(false),
                     Some(Ok(T)) => bits.push(true),
                     Some(Ok(L)) => break,
-                    Some(Err(err)) => return Err(ParseError::LexError(err, opcode.tokens())),
+                    Some(Err(err)) => {
+                        let mut tokens = opcode.tokens();
+                        tokens.append_bits(&bits);
+                        self.partial = Some(PartialState::ParsingArg(opcode, bits));
+                        return Err(ParseError::LexError(err, tokens));
+                    }
                     None => return Err(ParseError::UnterminatedArg(opcode)),
                 }
             }
@@ -63,19 +75,36 @@ impl<L: Lexer> Iterator for Parser<L> {
 
     fn next(&mut self) -> Option<Self::Item> {
         use ParseError::*;
-        let mut seq = TokenSeq::new();
-        let mut prefix = &SmallVec::new();
+        // Restore state, if an instruction was interrupted with a lex error
+        // after being partially parsed.
+        let mut seq = match self.partial.take() {
+            Some(PartialState::ParsingOpcode(partial)) => partial,
+            Some(PartialState::ParsingArg(opcode, bits)) => {
+                return Some(self.parse_arg(opcode, Some(bits)));
+            }
+            None => TokenSeq::new(),
+        };
+
         loop {
             match self.lex.next() {
                 Some(Ok(tok)) => seq.push(tok),
-                Some(Err(err)) => return Some(Inst::from(LexError(err, seq.into()))),
+                Some(Err(err)) => {
+                    self.partial = Some(PartialState::ParsingOpcode(seq));
+                    return Some(Inst::from(LexError(err, seq.into())));
+                }
                 None if seq.is_empty() => return None,
-                None => return Some(Inst::from(IncompleteInst(seq.into(), prefix.clone()))),
+                None => {
+                    let prefix = match self.table.get(seq) {
+                        ParseEntry::Prefix(opcodes) => opcodes.clone(),
+                        _ => unreachable!(),
+                    };
+                    return Some(Inst::from(IncompleteInst(seq.into(), prefix)));
+                }
             }
             match self.table.get(seq) {
                 ParseEntry::Unknown => return Some(Inst::from(UnknownOpcode(seq.into()))),
-                ParseEntry::Prefix(opcodes) => prefix = opcodes,
-                ParseEntry::Terminal(opcode) => return Some(self.parse_arg(*opcode)),
+                ParseEntry::Prefix(_) => {}
+                ParseEntry::Terminal(opcode) => return Some(self.parse_arg(*opcode, None)),
             }
         }
     }
@@ -134,7 +163,7 @@ impl ParseTable {
 
     #[inline]
     pub fn parser<L: Lexer>(self, lex: L) -> Parser<L> {
-        Parser { table: self, lex }
+        Parser { table: self, lex, partial: None }
     }
 
     #[inline]

@@ -25,15 +25,30 @@ pub struct Utf8Lexer<'a> {
     src: &'a [u8],
     offset: usize,
     map: Mapping<char>,
+    error_once: bool,
+    valid_to: Option<usize>,
 }
 
 impl<'a> Utf8Lexer<'a> {
     #[inline]
-    pub const fn new<B: ~const AsRef<[u8]> + ?Sized>(src: &'a B, map: Mapping<char>) -> Self {
+    pub const fn new<B>(src: &'a B, map: Mapping<char>, error_once: bool) -> Self
+    where
+        B: ~const AsRef<[u8]> + ?Sized,
+    {
         Utf8Lexer {
             src: src.as_ref(),
             offset: 0,
             map,
+            error_once,
+            valid_to: None,
+        }
+    }
+
+    #[inline]
+    pub const fn valid_to(&self) -> usize {
+        match self.valid_to {
+            Some(valid_to) => valid_to,
+            None => self.offset,
         }
     }
 }
@@ -52,7 +67,8 @@ impl<'a> Iterator for Utf8Lexer<'a> {
                         return Some(Ok(tok));
                     }
                 }
-                None => {
+                None if self.valid_to == None || !self.error_once => {
+                    self.valid_to = Some(offset);
                     // Size is guaranteed to be between 1 and 3, inclusive, for
                     // an unsuccessful decode.
                     let mut bad = ArrayVec::new();
@@ -60,6 +76,7 @@ impl<'a> Iterator for Utf8Lexer<'a> {
                         .unwrap();
                     return Some(Err(LexError::InvalidUtf8(bad)));
                 }
+                None => {}
             }
         }
         None

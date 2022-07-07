@@ -58,7 +58,7 @@ fn detect_features(program: ProgramOptions) {
     let lex: Box<dyn Lexer> = match ext {
         Some("wsx") => box BitLexer::new(&src),
         _ if program.ascii => box ByteLexer::new(&src, Mapping::<u8>::default()),
-        _ => box Utf8Lexer::new(&src, Mapping::<char>::default()),
+        _ => box Utf8Lexer::new(&src, Mapping::<char>::default(), true),
     };
     let parser = Parser::new(lex, Features::all()).unwrap();
 
@@ -70,10 +70,11 @@ fn detect_features(program: ProgramOptions) {
             features.insert(feature);
         }
     }
+    println!("Features:");
     if !features.contains(Feature::Wspace0_3) {
-        println!("wspace 0.2");
+        println!("- wspace 0.2");
     }
     for feature in features {
-        println!("{}", feature);
+        println!("- {}", feature);
     }
 }

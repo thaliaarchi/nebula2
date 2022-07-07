@@ -69,7 +69,7 @@ fn get_tutorial_insts() -> Vec<RawInst> {
 
 #[test]
 fn lex() -> Result<(), LexError> {
-    let lex = Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL);
+    let lex = Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL, true);
     let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
     assert_eq!(TUTORIAL_TOKENS, toks);
     Ok(())
@@ -93,7 +93,7 @@ fn bit_lex() -> Result<(), LexError> {
 
 #[test]
 fn parse() {
-    let lex = Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL);
+    let lex = Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL, true);
     let parser = Parser::new(lex, Features::all()).unwrap();
     let insts = parser.collect::<Vec<_>>();
     assert_eq!(get_tutorial_insts(), insts);
@@ -102,7 +102,7 @@ fn parse() {
 #[test]
 fn parse_dyn() {
     let lexers: [Box<dyn Lexer>; 3] = [
-        box Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL),
+        box Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL, true),
         box ByteLexer::new(TUTORIAL_STL, Mapping::<u8>::STL),
         box BitLexer::new(TUTORIAL_BITS),
     ];
