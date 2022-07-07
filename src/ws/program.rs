@@ -7,11 +7,13 @@
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
 use std::collections::{hash_map::Entry, HashMap};
+use std::mem::{ManuallyDrop, MaybeUninit};
 use std::ops::{Index, IndexMut};
 
 use bitvec::prelude::BitVec;
 use rug::Integer;
 use smallvec::SmallVec;
+use static_assertions::assert_eq_size;
 
 use crate::ws::inst::{Inst, InstArg, InstError, Opcode, RawInst};
 
@@ -162,12 +164,56 @@ impl LabelResolver {
         }
     }
 
-    pub fn resolve_all(&mut self, insts: Vec<RawInst>) -> Vec<ProgramInst> {
-        let mut resolved = Vec::with_capacity(insts.len());
-        for (i, inst) in insts.into_iter().enumerate() {
-            resolved.push(self.resolve(inst, InstId::from(i)));
+    pub fn resolve_all(&mut self, insts: Vec<RawInst>, order: LabelOrder) -> Vec<ProgramInst> {
+        match order {
+            LabelOrder::Def => {
+                assert_eq_size!(RawInst, Option<RawInst>);
+                assert_eq_size!(Vec<RawInst>, Vec<Option<RawInst>>);
+                // SAFETY: RawInst and Option<RawInst> have the same structure,
+                // so it is safe to cast from Vec<RawInst> to
+                // Vec<Option<RawInst>>.
+                let mut insts: Vec<Option<RawInst>> = unsafe {
+                    // See https://doc.rust-lang.org/std/mem/fn.transmute.html#alternatives
+                    let mut insts = ManuallyDrop::new(insts);
+                    Vec::from_raw_parts(
+                        insts.as_mut_ptr() as *mut Option<RawInst>,
+                        insts.len(),
+                        insts.capacity(),
+                    )
+                };
+
+                // Iterate insts twice: the first time to resolve label
+                // definitions; the second to resolve label uses and map other
+                // instructions.
+                let len = insts.len();
+                let mut resolved = Vec::with_capacity(len);
+                let resolved_uninit = resolved.spare_capacity_mut();
+                for i in 0..len {
+                    // SAFETY: All Option values from i..len are Some(..).
+                    let inst = &mut insts[i];
+                    if let Inst::Label(_) = unsafe { inst.as_ref().unwrap_unchecked() } {
+                        let inst = unsafe { inst.take().unwrap_unchecked() };
+                        resolved_uninit[i] = MaybeUninit::new(self.resolve(inst, InstId::from(i)));
+                    }
+                }
+                for (i, inst) in insts.into_iter().enumerate() {
+                    if let Some(inst) = inst {
+                        resolved_uninit[i] = MaybeUninit::new(self.resolve(inst, InstId::from(i)));
+                    }
+                }
+                // SAFETY: The entire vector has now been initialized.
+                unsafe { resolved.set_len(len) };
+                resolved
+            }
+            LabelOrder::DefOrUse => {
+                // Resolve labels in order of the first definition or use.
+                let mut resolved = Vec::with_capacity(insts.len());
+                for (i, inst) in insts.into_iter().enumerate() {
+                    resolved.push(self.resolve(inst, InstId::from(i)));
+                }
+                resolved
+            }
         }
-        resolved
     }
 
     pub fn resolve(&mut self, inst: RawInst, id: InstId) -> ProgramInst {
