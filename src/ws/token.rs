@@ -80,6 +80,7 @@ impl const Default for Mapping<u8> {
     }
 }
 
+#[repr(transparent)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TokenSeq(pub u16);
 

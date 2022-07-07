@@ -20,6 +20,8 @@ clap = { version = "3.2.8", features = ["deprecated", "derive", "regex", "unicod
 enumset = { version = "1.0.11", features = ["std"] }
 paste = "1.0.7"
 rug = { version = "1.16.0", default-features = false, features = ["integer", "num-traits"] }
+smallvec = { version = "1.9.0", features = ["const_generics", "const_new", "may_dangle", "specialization", "union", "write"] }
+static_assertions = "1.1.0"
 strum = { version = "0.24.1", features = ["derive"] }
 
 [profile.release]
