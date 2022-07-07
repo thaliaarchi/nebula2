@@ -14,7 +14,7 @@ use strum::IntoEnumIterator;
 
 use crate::ws::inst::{Features, Inst, InstArg, Opcode, RawInst};
 use crate::ws::lex::{LexError, Lexer};
-use crate::ws::token::{token_vec, Token::*, TokenSeq};
+use crate::ws::token::{token_vec, Token::*, TokenSeq, TokenVec};
 
 #[derive(Clone, Debug)]
 pub struct Parser<L: Lexer> {
@@ -24,9 +24,9 @@ pub struct Parser<L: Lexer> {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ParseError {
-    LexError(LexError, TokenSeq),
-    UnknownOpcode(TokenSeq),
-    IncompleteInst(TokenSeq, Vec<Opcode>),
+    LexError(LexError, TokenVec),
+    UnknownOpcode(TokenVec),
+    IncompleteInst(TokenVec, Vec<Opcode>),
     UnterminatedArg(Opcode),
 }
 
@@ -44,9 +44,7 @@ impl<L: Lexer> Parser<L> {
                     Some(Ok(S)) => bits.push(false),
                     Some(Ok(T)) => bits.push(true),
                     Some(Ok(L)) => break,
-                    Some(Err(err)) => {
-                        return Err(ParseError::LexError(err, opcode.tokens().into()))
-                    }
+                    Some(Err(err)) => return Err(ParseError::LexError(err, opcode.tokens())),
                     None => return Err(ParseError::UnterminatedArg(opcode)),
                 }
             }
@@ -62,17 +60,18 @@ impl<L: Lexer> Iterator for Parser<L> {
     type Item = RawInst;
 
     fn next(&mut self) -> Option<Self::Item> {
+        use ParseError::*;
         let mut seq = TokenSeq::new();
         let mut prefix = &Vec::new();
         loop {
             match self.lex.next() {
                 Some(Ok(tok)) => seq.push(tok),
-                Some(Err(err)) => return Some(Inst::from(ParseError::LexError(err, seq))),
+                Some(Err(err)) => return Some(Inst::from(LexError(err, seq.into()))),
                 None if seq.is_empty() => return None,
-                None => return Some(Inst::from(ParseError::IncompleteInst(seq, prefix.clone()))),
+                None => return Some(Inst::from(IncompleteInst(seq.into(), prefix.clone()))),
             }
             match self.table.get(seq) {
-                ParseEntry::Unknown => return Some(Inst::from(ParseError::UnknownOpcode(seq))),
+                ParseEntry::Unknown => return Some(Inst::from(UnknownOpcode(seq.into()))),
                 ParseEntry::Prefix(opcodes) => prefix = opcodes,
                 ParseEntry::Terminal(opcode) => return Some(self.parse_arg(*opcode)),
             }
@@ -98,8 +97,11 @@ pub enum ParseEntry {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParserError {
-    Conflict { seq: TokenSeq, opcodes: Vec<Opcode> },
-    EmptyTokenSeq(Opcode),
+    Conflict {
+        prefix: TokenVec,
+        opcodes: Vec<Opcode>,
+    },
+    NoTokens(Opcode),
 }
 
 impl ParseTable {
@@ -132,7 +134,7 @@ impl ParseTable {
     }
 
     #[inline]
-    pub fn get(&self, seq: TokenSeq) -> &ParseEntry {
+    fn get(&self, seq: TokenSeq) -> &ParseEntry {
         if seq <= Self::DENSE_MAX {
             &self.dense[seq.as_usize()]
         } else {
@@ -141,7 +143,7 @@ impl ParseTable {
     }
 
     #[inline]
-    pub fn get_mut(&mut self, seq: TokenSeq) -> &mut ParseEntry {
+    fn get_mut(&mut self, seq: TokenSeq) -> &mut ParseEntry {
         if seq <= Self::DENSE_MAX {
             &mut self.dense[seq.as_usize()]
         } else {
@@ -150,35 +152,34 @@ impl ParseTable {
     }
 
     pub fn register(&mut self, opcode: Opcode) -> Result<(), ParserError> {
+        #[inline]
+        const fn conflict(seq: TokenSeq, opcodes: Vec<Opcode>) -> Result<(), ParserError> {
+            Err(ParserError::Conflict { prefix: seq.into(), opcodes })
+        }
+        use ParseEntry::*;
         let toks = opcode.tokens();
         if toks.len() == 0 {
-            return Err(ParserError::EmptyTokenSeq(opcode));
+            return Err(ParserError::NoTokens(opcode));
         }
         let mut seq = TokenSeq::new();
         for tok in toks {
             let entry = self.get_mut(seq);
             match entry {
-                ParseEntry::Unknown => *entry = ParseEntry::Prefix(vec![opcode]),
-                ParseEntry::Prefix(opcodes) => opcodes.push(opcode),
-                ParseEntry::Terminal(terminal) => {
-                    let opcodes = vec![*terminal, opcode];
-                    return Err(ParserError::Conflict { seq, opcodes });
-                }
+                Unknown => *entry = Prefix(vec![opcode]),
+                Prefix(opcodes) => opcodes.push(opcode),
+                Terminal(terminal) => return conflict(seq, vec![*terminal, opcode]),
             }
             seq.push(tok);
         }
         let entry = self.get_mut(seq);
         match entry {
-            ParseEntry::Unknown => *entry = ParseEntry::Terminal(opcode),
-            ParseEntry::Prefix(opcodes) => {
+            Unknown => *entry = Terminal(opcode),
+            Prefix(opcodes) => {
                 let mut opcodes = opcodes.clone();
                 opcodes.push(opcode);
-                return Err(ParserError::Conflict { seq, opcodes });
+                return conflict(seq, opcodes);
             }
-            ParseEntry::Terminal(terminal) => {
-                let opcodes = vec![*terminal, opcode];
-                return Err(ParserError::Conflict { seq, opcodes });
-            }
+            Terminal(terminal) => return conflict(seq, vec![*terminal, opcode]),
         }
         Ok(())
     }

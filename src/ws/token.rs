@@ -81,7 +81,7 @@ impl const Default for Mapping<u8> {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TokenSeq(pub u16);
+pub(crate) struct TokenSeq(pub u16);
 
 impl TokenSeq {
     #[inline]

@@ -14,7 +14,7 @@ use crate::ws::token::{Token, TokenSeq};
 const LEN_BITS: u64 = 6;
 const LEN_MASK: u64 = 0b111111;
 
-#[derive(Clone, Copy, Default, Eq)]
+#[derive(Clone, Copy, Default, Eq, Hash)]
 pub struct TokenVec(u64);
 
 impl TokenVec {
