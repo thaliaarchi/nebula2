@@ -30,9 +30,11 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Disassemble the program to Whitespace assembly syntax.
+    Disasm(ProgramOptions),
     /// Detect the spec version (0.2 or 0.3) for a program and any non-standard
     /// instructions
-    DetectFeatures(ProgramOptions),
+    Features(ProgramOptions),
 }
 
 #[derive(Debug, Args)]
@@ -48,20 +50,38 @@ struct ProgramOptions {
 fn main() {
     let args = Cli::parse();
     match args.command {
-        Command::DetectFeatures(program) => detect_features(program),
+        Command::Disasm(program) => disassemble(program),
+        Command::Features(program) => detect_features(program),
+    }
+}
+
+// TODO: Structure better with lifetimes
+macro_rules! get_parser(
+    ($parser:ident, $program:ident) => {
+        let src = fs::read(&$program.filename).unwrap();
+        let ext = $program.filename.extension().map(OsStr::to_str).flatten();
+        let lex: Box<dyn Lexer> = match ext {
+            Some("wsx") => box BitLexer::new(&src),
+            _ if $program.ascii => box ByteLexer::new(&src, Mapping::<u8>::default()),
+            _ => box Utf8Lexer::new(&src, Mapping::<char>::default(), true),
+        };
+        let $parser = Parser::new(lex, Features::all()).unwrap();
+    }
+);
+
+fn disassemble(program: ProgramOptions) {
+    get_parser!(parser, program);
+    for inst in parser {
+        if let Inst::Error(err) = inst {
+            println!("error: {:?}", err);
+        } else {
+            println!("{}", inst);
+        }
     }
 }
 
 fn detect_features(program: ProgramOptions) {
-    let src = fs::read(&program.filename).unwrap();
-    let ext = program.filename.extension().map(OsStr::to_str).flatten();
-    let lex: Box<dyn Lexer> = match ext {
-        Some("wsx") => box BitLexer::new(&src),
-        _ if program.ascii => box ByteLexer::new(&src, Mapping::<u8>::default()),
-        _ => box Utf8Lexer::new(&src, Mapping::<char>::default(), true),
-    };
-    let parser = Parser::new(lex, Features::all()).unwrap();
-
+    get_parser!(parser, program);
     let mut features = Features::empty();
     for inst in parser {
         if let Inst::Error(err) = inst {
