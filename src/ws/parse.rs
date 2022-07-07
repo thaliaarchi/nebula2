@@ -7,6 +7,7 @@
 // Public License along with yspace2. If not, see http://www.gnu.org/licenses/.
 
 use std::collections::HashMap;
+use std::fmt::{self, Debug, Formatter};
 use std::iter::FusedIterator;
 
 use bitvec::prelude::BitVec;
@@ -81,7 +82,7 @@ impl<L: Lexer> Iterator for Parser<L> {
 
 impl<L: Lexer + FusedIterator> const FusedIterator for Parser<L> {}
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ParseTable {
     dense: Box<[ParseEntry; Self::DENSE_LEN]>,
     sparse: HashMap<TokenSeq, ParseEntry>,
@@ -182,5 +183,34 @@ impl ParseTable {
             Terminal(terminal) => return conflict(seq, vec![*terminal, opcode]),
         }
         Ok(())
+    }
+}
+
+impl Debug for ParseTable {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        struct EntryDebug<'a>(TokenSeq, &'a ParseEntry);
+        impl<'a> Debug for EntryDebug<'a> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                write!(f, "{}{:?}: {:?}", self.0 .0, TokenVec::from(self.0), self.1)
+            }
+        }
+
+        let dense = self
+            .dense
+            .iter()
+            .enumerate()
+            .map(|(i, e)| EntryDebug(TokenSeq(i as u16), e))
+            .collect::<Vec<_>>();
+        let mut sparse = self
+            .sparse
+            .iter()
+            .map(|(&seq, e)| EntryDebug(seq, e))
+            .collect::<Vec<_>>();
+        sparse.sort_by(|a, b| a.0.cmp(&b.0));
+
+        f.debug_struct("ParseTable")
+            .field("dense", &dense)
+            .field("sparse", &sparse)
+            .finish()
     }
 }
