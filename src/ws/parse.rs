@@ -12,7 +12,7 @@ use std::iter::FusedIterator;
 use bitvec::prelude::BitVec;
 use strum::IntoEnumIterator;
 
-use crate::ws::inst::{Features, Inst, Opcode, RawInst};
+use crate::ws::inst::{Features, Inst, InstArg, Opcode, RawInst};
 use crate::ws::lex::{LexError, Lexer};
 use crate::ws::token::{token_vec, Token::*, TokenSeq};
 
@@ -36,17 +36,25 @@ impl<L: Lexer> Parser<L> {
         Ok(Parser { table, lex })
     }
 
-    pub(crate) fn parse_bitvec(&mut self, opcode: Opcode) -> Result<BitVec, ParseError> {
-        let mut bits = BitVec::new();
-        loop {
-            match self.lex.next() {
-                Some(Ok(S)) => bits.push(false),
-                Some(Ok(T)) => bits.push(true),
-                Some(Ok(L)) => return Ok(bits),
-                Some(Err(err)) => return Err(ParseError::LexError(err, opcode.tokens().into())),
-                None => return Err(ParseError::UnterminatedArg(opcode)),
+    fn parse_arg(&mut self, opcode: Opcode) -> RawInst {
+        Inst::from(opcode).map_arg(|opcode, arg| {
+            let mut bits = BitVec::new();
+            loop {
+                match self.lex.next() {
+                    Some(Ok(S)) => bits.push(false),
+                    Some(Ok(T)) => bits.push(true),
+                    Some(Ok(L)) => break,
+                    Some(Err(err)) => {
+                        return Err(ParseError::LexError(err, opcode.tokens().into()))
+                    }
+                    None => return Err(ParseError::UnterminatedArg(opcode)),
+                }
             }
-        }
+            match arg {
+                InstArg::Int(()) => Ok(InstArg::Int(bits)),
+                InstArg::Label(()) => Ok(InstArg::Label(bits)),
+            }
+        })
     }
 }
 

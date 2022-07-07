@@ -11,7 +11,7 @@ use std::collections::{hash_map::Entry, HashMap};
 use bitvec::prelude::BitVec;
 use rug::Integer;
 
-use crate::ws::inst::{Inst, Opcode, RawInst};
+use crate::ws::inst::{Inst, InstArg, InstError, Opcode, RawInst};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Program {
@@ -102,10 +102,12 @@ impl LabelResolver {
     }
 
     pub fn resolve(&mut self, inst: RawInst, pc: usize) -> ProgramInst {
-        inst.map(
-            |_opcode, n| Int { bits: n, int: Integer::new() }, // TODO
-            |opcode, l| self.insert(l, pc, opcode),
-        )
+        inst.map_arg(|opcode, arg| -> Result<_, InstError> {
+            match arg {
+                InstArg::Int(n) => Ok(InstArg::Int(Int { bits: n, int: Integer::new() })), // TODO
+                InstArg::Label(l) => Ok(InstArg::Label(self.insert(l, pc, opcode))),
+            }
+        })
     }
 
     fn insert(&mut self, bits: BitVec, pc: usize, opcode: Opcode) -> usize {

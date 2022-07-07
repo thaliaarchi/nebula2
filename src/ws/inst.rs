@@ -14,7 +14,7 @@ use paste::paste;
 use strum::{Display, EnumIter, IntoStaticStr};
 
 use crate::ws::lex::Lexer;
-use crate::ws::parse::{ParseError, Parser};
+use crate::ws::parse::ParseError;
 use crate::ws::token::{token_vec, Token::*, TokenVec};
 
 pub type RawInst = Inst<BitVec, BitVec>;
@@ -107,33 +107,51 @@ macro_rules! insts {
             }
         }
 
-        impl<L: Lexer> Parser<L> {
-            pub(crate) fn parse_arg(&mut self, opcode: Opcode) -> RawInst {
+        impl const From<Opcode> for Inst<(), ()> {
+            #[inline]
+            fn from(opcode: Opcode) -> Self {
                 match opcode {
-                    $(Opcode::$opcode => map_or!($($arg)?,
-                        self.parse_bitvec(opcode).map_or_else(Inst::from, Inst::$opcode),
-                        Inst::$opcode
-                    )),+,
+                    $(Opcode::$opcode => Inst::$opcode $((map!($arg, ())))?),+,
                 }
             }
         }
     }
 }
 
-impl<I, L> Inst<I, L> {
-    pub fn map<I2, L2, FnI, FnL>(self, map_int: FnI, map_label: FnL) -> Inst<I2, L2>
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum InstArg<I, L> {
+    Int(I),
+    Label(L),
+}
+
+impl<I1, L1> Inst<I1, L1> {
+    pub fn map_arg<I2, L2, E, F>(self, f: F) -> Inst<I2, L2>
     where
-        FnI: FnOnce(Opcode, I) -> I2,
-        FnL: FnOnce(Opcode, L) -> L2,
+        E: Into<InstError>,
+        F: FnOnce(Opcode, InstArg<I1, L1>) -> Result<InstArg<I2, L2>, E>,
     {
+        macro_rules! map_int(($opcode:ident, $n:ident) => {
+            match f(Opcode::$opcode, InstArg::Int($n)) {
+                Ok(InstArg::Int(n)) => $opcode(n),
+                Ok(InstArg::Label(_)) => unreachable!(),
+                Err(err) => Inst::from(err),
+            }
+        });
+        macro_rules! map_label(($opcode:ident, $l:ident) => {
+            match f(Opcode::$opcode, InstArg::Label($l)) {
+                Ok(InstArg::Int(_)) => unreachable!(),
+                Ok(InstArg::Label(l)) => $opcode(l),
+                Err(err) => Inst::from(err),
+            }
+        });
         use Inst::*;
         match self {
-            Push(n) => Push(map_int(Opcode::Push, n)),
+            Push(n) => map_int!(Push, n),
             Dup => Dup,
-            Copy(n) => Copy(map_int(Opcode::Copy, n)),
+            Copy(n) => map_int!(Copy, n),
             Swap => Swap,
             Drop => Drop,
-            Slide(n) => Slide(map_int(Opcode::Slide, n)),
+            Slide(n) => map_int!(Slide, n),
             Add => Add,
             Sub => Sub,
             Mul => Mul,
@@ -141,11 +159,11 @@ impl<I, L> Inst<I, L> {
             Mod => Mod,
             Store => Store,
             Retrieve => Retrieve,
-            Label(l) => Label(map_label(Opcode::Label, l)),
-            Call(l) => Call(map_label(Opcode::Call, l)),
-            Jmp(l) => Jmp(map_label(Opcode::Jmp, l)),
-            Jz(l) => Jz(map_label(Opcode::Jz, l)),
-            Jn(l) => Jn(map_label(Opcode::Jn, l)),
+            Label(l) => map_label!(Label, l),
+            Call(l) => map_label!(Call, l),
+            Jmp(l) => map_label!(Jmp, l),
+            Jz(l) => map_label!(Jz, l),
+            Jn(l) => map_label!(Jn, l),
             Ret => Ret,
             End => End,
             Printc => Printc,
