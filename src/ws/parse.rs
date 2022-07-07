@@ -74,7 +74,7 @@ impl<L: Lexer> Iterator for Parser<L> {
     type Item = RawInst;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use ParseError::*;
+        use {ParseEntry::*, ParseError::*};
         // Restore state, if an instruction was interrupted with a lex error
         // after being partially parsed.
         let mut seq = match self.partial.take() {
@@ -95,16 +95,16 @@ impl<L: Lexer> Iterator for Parser<L> {
                 None if seq.is_empty() => return None,
                 None => {
                     let prefix = match self.table.get(seq) {
-                        ParseEntry::Prefix(opcodes) => opcodes.clone(),
+                        Some(Prefix(opcodes)) => opcodes.clone(),
                         _ => unreachable!(),
                     };
                     return Some(Inst::from(IncompleteInst(seq.into(), prefix)));
                 }
             }
             match self.table.get(seq) {
-                ParseEntry::Unknown => return Some(Inst::from(UnknownOpcode(seq.into()))),
-                ParseEntry::Prefix(_) => {}
-                ParseEntry::Terminal(opcode) => return Some(self.parse_arg(*opcode, None)),
+                Some(Terminal(opcode)) => return Some(self.parse_arg(*opcode, None)),
+                Some(Prefix(_)) => {}
+                None => return Some(Inst::from(UnknownOpcode(seq.into()))),
             }
         }
     }
@@ -114,16 +114,14 @@ impl<L: Lexer + FusedIterator> const FusedIterator for Parser<L> {}
 
 #[derive(Clone)]
 pub struct ParseTable {
-    dense: Box<[ParseEntry; Self::DENSE_LEN]>,
-    sparse: HashMap<TokenSeq, ParseEntry>,
+    dense: Box<[Option<ParseEntry>; Self::DENSE_LEN]>,
+    sparse: HashMap<TokenSeq, Option<ParseEntry>>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub enum ParseEntry {
-    #[default]
-    Unknown,
-    Prefix(OpcodeVec),
     Terminal(Opcode),
+    Prefix(OpcodeVec),
 }
 
 type OpcodeVec = SmallVec<[Opcode; 16]>;
@@ -143,7 +141,7 @@ impl ParseTable {
 
     pub fn new() -> Self {
         ParseTable {
-            dense: vec![ParseEntry::Unknown; Self::DENSE_LEN]
+            dense: vec![None; Self::DENSE_LEN]
                 .into_boxed_slice()
                 .try_into()
                 .unwrap(),
@@ -167,16 +165,16 @@ impl ParseTable {
     }
 
     #[inline]
-    fn get(&self, seq: TokenSeq) -> &ParseEntry {
+    fn get(&self, seq: TokenSeq) -> Option<&ParseEntry> {
         if seq <= Self::DENSE_MAX {
-            &self.dense[seq.as_usize()]
+            self.dense[seq.as_usize()].as_ref()
         } else {
-            &self.sparse[&seq]
+            self.sparse.get(&seq).map(Option::as_ref).flatten()
         }
     }
 
     #[inline]
-    fn get_mut(&mut self, seq: TokenSeq) -> &mut ParseEntry {
+    fn get_mut(&mut self, seq: TokenSeq) -> &mut Option<ParseEntry> {
         if seq <= Self::DENSE_MAX {
             &mut self.dense[seq.as_usize()]
         } else {
@@ -198,21 +196,21 @@ impl ParseTable {
         for tok in toks {
             let entry = self.get_mut(seq);
             match entry {
-                Unknown => *entry = Prefix(smallvec![opcode]),
-                Prefix(opcodes) => opcodes.push(opcode),
-                Terminal(terminal) => return conflict(seq, smallvec![*terminal, opcode]),
+                Some(Terminal(terminal)) => return conflict(seq, smallvec![*terminal, opcode]),
+                Some(Prefix(opcodes)) => opcodes.push(opcode),
+                None => *entry = Some(Prefix(smallvec![opcode])),
             }
             seq.push(tok);
         }
         let entry = self.get_mut(seq);
         match entry {
-            Unknown => *entry = Terminal(opcode),
-            Prefix(opcodes) => {
+            Some(Terminal(terminal)) => return conflict(seq, smallvec![*terminal, opcode]),
+            Some(Prefix(opcodes)) => {
                 let mut opcodes = opcodes.clone();
                 opcodes.push(opcode);
                 return conflict(seq, opcodes);
             }
-            Terminal(terminal) => return conflict(seq, smallvec![*terminal, opcode]),
+            None => *entry = Some(Terminal(opcode)),
         }
         Ok(())
     }
@@ -220,7 +218,7 @@ impl ParseTable {
 
 impl Debug for ParseTable {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        struct EntryDebug<'a>(TokenSeq, &'a ParseEntry);
+        struct EntryDebug<'a>(TokenSeq, Option<&'a ParseEntry>);
         impl<'a> Debug for EntryDebug<'a> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 write!(f, "{}{:?}: {:?}", self.0 .0, TokenVec::from(self.0), self.1)
@@ -231,12 +229,12 @@ impl Debug for ParseTable {
             .dense
             .iter()
             .enumerate()
-            .map(|(i, e)| EntryDebug(TokenSeq(i as u16), e))
+            .map(|(i, e)| EntryDebug(TokenSeq(i as u16), e.as_ref()))
             .collect::<Vec<_>>();
         let mut sparse = self
             .sparse
             .iter()
-            .map(|(&seq, e)| EntryDebug(seq, e))
+            .map(|(&seq, e)| EntryDebug(seq, e.as_ref()))
             .collect::<Vec<_>>();
         sparse.sort_by(|a, b| a.0.cmp(&b.0));
 
