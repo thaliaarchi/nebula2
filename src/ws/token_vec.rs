@@ -177,9 +177,7 @@ impl const From<TokenSeq> for TokenVec {
     fn from(seq: TokenSeq) -> TokenVec {
         let mut seq = seq;
         let mut toks = TokenVec::new();
-        let mut i = seq.len();
-        while i != 0 {
-            i -= 1;
+        while !seq.is_empty() {
             toks.push_front(seq.pop());
         }
         toks

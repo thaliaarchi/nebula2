@@ -80,9 +80,14 @@ impl const Default for Mapping<u8> {
     }
 }
 
+// Maximum TokenSeq value for each integer width:
+// - u8  [T T L L L]
+// - u16 [T L T T T S T L S L]
+// - u32 [L S T L S L T T S L S T T S S S S S L L]
+// - u64 [L S T S S T L L S L L S L S S L S L L L S S L L T S S T T S T T L T S T T S S S S]
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct TokenSeq(pub u16);
+pub(crate) struct TokenSeq(pub u32);
 
 impl TokenSeq {
     #[inline]
@@ -92,7 +97,7 @@ impl TokenSeq {
 
     #[inline]
     pub const fn push(&mut self, tok: Token) {
-        self.0 = self.0 * 3 + tok as u16 + 1;
+        self.0 = self.0 * 3 + tok as u32 + 1;
     }
 
     #[inline]
@@ -102,8 +107,9 @@ impl TokenSeq {
         tok
     }
 
+    #[allow(dead_code)]
     #[inline]
-    pub const fn len(&self) -> u16 {
+    pub const fn len(&self) -> u32 {
         let mut seq = self.0;
         let mut len = 0;
         while seq != 0 {
@@ -121,6 +127,13 @@ impl TokenSeq {
     #[inline]
     pub const fn as_usize(&self) -> usize {
         self.0 as usize
+    }
+}
+
+impl const From<usize> for TokenSeq {
+    #[inline]
+    fn from(seq: usize) -> Self {
+        TokenSeq(seq as u32)
     }
 }
 
@@ -156,7 +169,7 @@ mod tests {
             [L S S], [L S T], [L S L], [L T S], [L T T], [L T L], [L L S], [L L T], [L L L],
         ];
         for (i, &toks) in seqs.iter().enumerate() {
-            let seq = TokenSeq(i as u16);
+            let seq = TokenSeq::from(i);
             let seq2 = TokenSeq::from(toks);
             assert_eq!(seq, seq2, "TokenSeq::from({:?})", toks);
             let toks2 = TokenVec::from(seq);

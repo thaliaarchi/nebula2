@@ -229,7 +229,7 @@ impl Debug for ParseTable {
             .dense
             .iter()
             .enumerate()
-            .map(|(i, e)| EntryDebug(TokenSeq(i as u16), e.as_ref()))
+            .map(|(i, e)| EntryDebug(TokenSeq::from(i), e.as_ref()))
             .collect::<Vec<_>>();
         let mut sparse = self
             .sparse
