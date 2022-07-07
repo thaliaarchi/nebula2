@@ -107,9 +107,6 @@ pub struct LabelData {
     uses: SmallVec<[InstId; 4]>,
 }
 
-#[cfg(test)]
-static_assertions::assert_eq_size!(Vec<LabelId>, SmallVec<[LabelId; 4]>);
-
 /// The resolution strategy for duplicate labels.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum LabelDupes {
@@ -202,4 +199,16 @@ impl LabelResolver {
             }
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::mem::size_of;
+
+    use static_assertions::{assert_eq_size, const_assert};
+
+    use super::*;
+
+    assert_eq_size!(Vec<InstId>, SmallVec<[InstId; 4]>);
+    const_assert!(size_of::<SmallVec<[InstId; 4]>>() < size_of::<SmallVec<[InstId; 5]>>());
 }

@@ -102,3 +102,14 @@ impl<'a> Iterator for ByteLexer<'a> {
 }
 
 impl<'a> const FusedIterator for ByteLexer<'a> {}
+
+#[cfg(test)]
+mod tests {
+    use std::mem::size_of;
+
+    use static_assertions::const_assert;
+
+    use super::*;
+
+    const_assert!(size_of::<ArrayVec<u8, 3>>() < size_of::<Vec<u8>>());
+}

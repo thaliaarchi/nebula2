@@ -11,6 +11,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::iter::FusedIterator;
 
 use bitvec::prelude::BitVec;
+use smallvec::{smallvec, SmallVec};
 use strum::IntoEnumIterator;
 
 use crate::ws::inst::{Features, Inst, InstArg, Opcode, RawInst};
@@ -27,7 +28,7 @@ pub struct Parser<L: Lexer> {
 pub enum ParseError {
     LexError(LexError, TokenVec),
     UnknownOpcode(TokenVec),
-    IncompleteInst(TokenVec, Vec<Opcode>),
+    IncompleteInst(TokenVec, OpcodeVec),
     UnterminatedArg(Opcode),
 }
 
@@ -63,7 +64,7 @@ impl<L: Lexer> Iterator for Parser<L> {
     fn next(&mut self) -> Option<Self::Item> {
         use ParseError::*;
         let mut seq = TokenSeq::new();
-        let mut prefix = &Vec::new();
+        let mut prefix = &SmallVec::new();
         loop {
             match self.lex.next() {
                 Some(Ok(tok)) => seq.push(tok),
@@ -92,15 +93,17 @@ pub struct ParseTable {
 pub enum ParseEntry {
     #[default]
     Unknown,
-    Prefix(Vec<Opcode>),
+    Prefix(OpcodeVec),
     Terminal(Opcode),
 }
+
+type OpcodeVec = SmallVec<[Opcode; 16]>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParserError {
     Conflict {
         prefix: TokenVec,
-        opcodes: Vec<Opcode>,
+        opcodes: OpcodeVec,
     },
     NoTokens(Opcode),
 }
@@ -154,7 +157,7 @@ impl ParseTable {
 
     pub fn register(&mut self, opcode: Opcode) -> Result<(), ParserError> {
         #[inline]
-        const fn conflict(seq: TokenSeq, opcodes: Vec<Opcode>) -> Result<(), ParserError> {
+        const fn conflict(seq: TokenSeq, opcodes: OpcodeVec) -> Result<(), ParserError> {
             Err(ParserError::Conflict { prefix: seq.into(), opcodes })
         }
         use ParseEntry::*;
@@ -166,9 +169,9 @@ impl ParseTable {
         for tok in toks {
             let entry = self.get_mut(seq);
             match entry {
-                Unknown => *entry = Prefix(vec![opcode]),
+                Unknown => *entry = Prefix(smallvec![opcode]),
                 Prefix(opcodes) => opcodes.push(opcode),
-                Terminal(terminal) => return conflict(seq, vec![*terminal, opcode]),
+                Terminal(terminal) => return conflict(seq, smallvec![*terminal, opcode]),
             }
             seq.push(tok);
         }
@@ -180,7 +183,7 @@ impl ParseTable {
                 opcodes.push(opcode);
                 return conflict(seq, opcodes);
             }
-            Terminal(terminal) => return conflict(seq, vec![*terminal, opcode]),
+            Terminal(terminal) => return conflict(seq, smallvec![*terminal, opcode]),
         }
         Ok(())
     }
@@ -211,6 +214,32 @@ impl Debug for ParseTable {
         f.debug_struct("ParseTable")
             .field("dense", &dense)
             .field("sparse", &sparse)
+            .field("sparse.len", &sparse.len())
+            .field("sparse.capacity", &sparse.capacity())
             .finish()
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::mem::size_of;
+
+    use static_assertions::{assert_eq_size, const_assert};
+
+    use super::*;
+
+    #[allow(dead_code)]
+    enum ParseEntryOf<T> {
+        Unknown,
+        Prefix(T),
+        Terminal(Opcode),
+    }
+
+    assert_eq_size!(
+        ParseEntry,
+        ParseEntryOf<Vec<Opcode>>,
+        ParseEntryOf<SmallVec<[Opcode; 16]>>,
+    );
+    assert_eq_size!(OpcodeVec, Vec<Opcode>, SmallVec<[Opcode; 16]>);
+    const_assert!(size_of::<SmallVec<[Opcode; 16]>>() < size_of::<SmallVec<[Opcode; 17]>>());
 }
