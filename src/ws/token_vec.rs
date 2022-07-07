@@ -40,7 +40,7 @@ impl TokenVec {
 
     #[inline]
     pub const fn push_front(&mut self, tok: Token) {
-        debug_assert!(self.len() < self.cap());
+        debug_assert!(self.len() < self.capacity());
         let data = (self.0 & !LEN_MASK) << 2;
         let len = (self.0 & LEN_MASK) + 1;
         self.0 = data | (tok as u64) << LEN_BITS | len;
@@ -91,7 +91,7 @@ impl TokenVec {
     #[inline]
     const fn extend(&mut self, n: usize) {
         // Shift overflows if n == 0
-        debug_assert!(n != 0 && self.len() + n <= self.cap());
+        debug_assert!(n != 0 && self.len() + n <= self.capacity());
         let data = self.0 & ((1 << Self::shift_for(self.len())) - 1);
         let len = (self.0 & LEN_MASK) + n as u64;
         self.0 = data | len;
@@ -99,7 +99,7 @@ impl TokenVec {
 
     #[inline]
     const fn extend_front(&mut self, n: usize) {
-        debug_assert!(self.len() + n <= self.cap());
+        debug_assert!(self.len() + n <= self.capacity());
         let data = (self.0 & !LEN_MASK) << Self::shift_for(n);
         let len = (self.0 & LEN_MASK) + n as u64;
         self.0 = data | len;
@@ -112,12 +112,12 @@ impl TokenVec {
 
     #[inline]
     const fn set_len(&mut self, len: usize) {
-        debug_assert!(len <= self.cap());
+        debug_assert!(len <= self.capacity());
         self.0 = (self.0 & !LEN_MASK) | len as u64;
     }
 
     #[inline]
-    pub const fn cap(&self) -> usize {
+    pub const fn capacity(&self) -> usize {
         29
     }
 
@@ -220,8 +220,8 @@ impl Debug for TokenVec {
 impl const PartialEq for TokenVec {
     #[inline]
     fn eq(&self, other: &TokenVec) -> bool {
-        // Shift overflows if len == cap
-        debug_assert!(self.len() < self.cap());
+        // Shift overflows if len == capacity
+        debug_assert!(self.len() < self.capacity());
         let (len1, len2) = (self.len(), other.len());
         (self.0 << Self::shift_for(len1)) == (other.0 << Self::shift_for(len2))
     }
