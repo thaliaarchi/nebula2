@@ -19,8 +19,8 @@ use crate::ws::lex::{LexError, Lexer};
 use crate::ws::token::{token_vec, Token::*, TokenSeq, TokenVec};
 
 #[derive(Clone, Debug)]
-pub struct Parser<L: Lexer> {
-    table: ParseTable,
+pub struct Parser<'a, L: Lexer> {
+    table: &'a ParseTable,
     lex: L,
     partial: Option<PartialState>,
 }
@@ -39,10 +39,9 @@ enum PartialState {
     ParsingArg(Opcode, BitVec),
 }
 
-impl<L: Lexer> Parser<L> {
-    pub fn new(lex: L, features: Features) -> Result<Self, ParserError> {
-        let table = ParseTable::with_features(features)?;
-        Ok(Parser { table, lex, partial: None })
+impl<'a, L: Lexer> Parser<'a, L> {
+    pub fn new(table: &'a ParseTable, lex: L) -> Self {
+        Parser { table, lex, partial: None }
     }
 
     fn parse_arg(&mut self, opcode: Opcode, partial: Option<BitVec>) -> RawInst {
@@ -70,7 +69,7 @@ impl<L: Lexer> Parser<L> {
     }
 }
 
-impl<L: Lexer> Iterator for Parser<L> {
+impl<'a, L: Lexer> Iterator for Parser<'a, L> {
     type Item = RawInst;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -110,7 +109,7 @@ impl<L: Lexer> Iterator for Parser<L> {
     }
 }
 
-impl<L: Lexer + FusedIterator> const FusedIterator for Parser<L> {}
+impl<'a, L: Lexer + FusedIterator> const FusedIterator for Parser<'a, L> {}
 
 #[derive(Clone)]
 pub struct ParseTable {
@@ -139,7 +138,7 @@ impl ParseTable {
     const DENSE_MAX: TokenSeq = token_vec![L L L].into();
     const DENSE_LEN: usize = Self::DENSE_MAX.as_usize() + 1;
 
-    pub fn new() -> Self {
+    pub fn empty() -> Self {
         ParseTable {
             dense: vec![None; Self::DENSE_LEN]
                 .into_boxed_slice()
@@ -149,19 +148,19 @@ impl ParseTable {
         }
     }
 
-    pub fn with_features(features: Features) -> Result<Self, ParserError> {
-        let mut table = ParseTable::new();
+    pub fn new(features: Features) -> Self {
+        let mut table = ParseTable::empty();
         for opcode in Opcode::iter() {
             if opcode.feature().map_or(true, |f| features.contains(f)) {
-                table.register(opcode)?;
+                table.register(opcode).unwrap();
             }
         }
-        Ok(table)
+        table
     }
 
     #[inline]
-    pub fn parser<L: Lexer>(self, lex: L) -> Parser<L> {
-        Parser { table: self, lex, partial: None }
+    pub fn with_all() -> Self {
+        Self::new(Features::all())
     }
 
     #[inline]

@@ -9,7 +9,7 @@
 use bitvec::prelude::*;
 
 use crate::ws::bit_pack::BitLexer;
-use crate::ws::inst::{Features, Inst, RawInst};
+use crate::ws::inst::{Inst, RawInst};
 use crate::ws::lex::{ByteLexer, LexError, Lexer, Utf8Lexer};
 use crate::ws::parse::{ParseTable, Parser};
 use crate::ws::token::{Mapping, Token, Token::*};
@@ -94,7 +94,8 @@ fn bit_lex() -> Result<(), LexError> {
 #[test]
 fn parse() {
     let lex = Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL, true);
-    let parser = Parser::new(lex, Features::all()).unwrap();
+    let table = ParseTable::with_all();
+    let parser = Parser::new(&table, lex);
     let insts = parser.collect::<Vec<_>>();
     assert_eq!(get_tutorial_insts(), insts);
 }
@@ -106,9 +107,9 @@ fn parse_dyn() {
         box ByteLexer::new(TUTORIAL_STL, Mapping::<u8>::STL),
         box BitLexer::new(TUTORIAL_BITS),
     ];
-    let table = ParseTable::with_features(Features::all()).unwrap();
+    let table = ParseTable::with_all();
     for lex in lexers {
-        let parser = table.clone().parser(lex);
+        let parser = Parser::new(&table, lex);
         let insts = parser.collect::<Vec<_>>();
         assert_eq!(get_tutorial_insts(), insts);
     }

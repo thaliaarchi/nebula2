@@ -18,7 +18,7 @@ use yspace2::ws::{
     inst::{Feature, Features, Inst, InstArg, InstError},
     int::Int,
     lex::{ByteLexer, Lexer, Utf8Lexer},
-    parse::Parser,
+    parse::{ParseTable, Parser},
     token::Mapping,
 };
 
@@ -66,7 +66,8 @@ macro_rules! get_parser(
             _ if $program.ascii => box ByteLexer::new(&src, Mapping::<u8>::default()),
             _ => box Utf8Lexer::new(&src, Mapping::<char>::default(), true),
         };
-        let $parser = Parser::new(lex, Features::all()).unwrap();
+        let table = ParseTable::with_all();
+        let $parser = Parser::new(&table, lex);
     }
 );
 
