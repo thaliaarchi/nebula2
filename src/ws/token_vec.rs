@@ -9,7 +9,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::iter::FusedIterator;
 
-use bitvec::prelude::BitVec;
+use bitvec::{order::BitOrder, store::BitStore, vec::BitVec};
 
 use crate::ws::token::{Token, TokenSeq};
 
@@ -91,14 +91,14 @@ impl TokenVec {
     }
 
     #[inline]
-    pub fn append_bits(&mut self, bits: &BitVec) {
+    pub fn append_bits<T: BitStore, O: BitOrder>(&mut self, bits: &BitVec<T, O>) {
         for bit in bits {
             self.push(if *bit { Token::T } else { Token::S });
         }
     }
 
     #[inline]
-    pub fn append_bits_front(&mut self, bits: &BitVec) {
+    pub fn append_bits_front<T: BitStore, O: BitOrder>(&mut self, bits: &BitVec<T, O>) {
         for bit in bits {
             self.push_front(if *bit { Token::T } else { Token::S });
         }
