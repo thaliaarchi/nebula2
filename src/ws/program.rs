@@ -155,7 +155,6 @@ pub enum LabelOrder {
 
 impl LabelData {
     pub fn new(id: LabelId, bits: BitVec) -> Self {
-        let mut bits = bits;
         let uint = bits.to_uint_unambiguous();
         LabelData {
             id,

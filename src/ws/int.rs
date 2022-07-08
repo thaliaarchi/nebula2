@@ -35,16 +35,15 @@
 //! | MsfBe | Msb0      | most-significant bit first  | big-endian      |
 //! |       | LocalBits | alias to Lsb0 or Msb0       | host endianness |
 
-use bitvec::{
-    order::{Lsb0, Msb0},
-    store::BitStore,
-    vec::BitVec,
-};
-use rug::{
-    integer::{Order, UnsignedPrimitive},
-    ops::NegAssign,
-    Integer,
-};
+use std::mem::size_of;
+
+use bitvec::prelude::*;
+use rug::{integer::Order, ops::NegAssign, Integer};
+use static_assertions::assert_type_eq_all;
+
+assert_type_eq_all!(BitSlice, BitSlice<usize, Lsb0>);
+assert_type_eq_all!(BitVec, BitVec<usize, Lsb0>);
+assert_type_eq_all!(BitBox, BitBox<usize, Lsb0>);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Sign {
@@ -54,53 +53,58 @@ pub enum Sign {
 }
 
 pub trait ToInteger {
-    fn to_int(&mut self) -> Integer;
-    fn to_uint(&mut self) -> Integer;
-    fn to_uint_unambiguous(&mut self) -> Option<Integer>;
+    fn to_int(&self) -> Integer;
+    fn to_uint(&self) -> Integer;
+    fn to_uint_unambiguous(&self) -> Option<Integer>;
     fn sign(&self) -> Sign;
 }
 
-macro_rules! impl_ToInteger(
-    (BitVec $bitvec_order:ident -> Integer $integer_order:ident) => {
-        impl<T: BitStore + UnsignedPrimitive> ToInteger for BitVec<T, $bitvec_order> {
-            fn to_int(&mut self) -> Integer {
-                if self.is_empty() {
-                    return Integer::ZERO;
-                }
-                let mut int = self.to_uint();
-                int >>= 1;
-                if self.first().as_deref() == Some(&true) {
+impl ToInteger for BitSlice {
+    fn to_int(&self) -> Integer {
+        match self.split_first() {
+            None => Integer::ZERO,
+            Some((sign, bits)) => {
+                let mut int = bits.to_uint();
+                if *sign == true {
                     int.neg_assign();
                 }
                 int
             }
-
-            fn to_uint(&mut self) -> Integer {
-                self.force_align();
-                self.set_uninitialized(false);
-                Integer::from_digits(self.as_raw_slice(), Order::$integer_order)
-            }
-
-            #[inline]
-            fn to_uint_unambiguous(&mut self) -> Option<Integer> {
-                if self.first().as_deref() == Some(&true) {
-                    Some(self.to_uint())
-                } else {
-                    None
-                }
-            }
-
-            #[inline]
-            fn sign(&self) -> Sign {
-                match self.first().as_deref() {
-                    Some(true) => Sign::Neg,
-                    Some(false) => Sign::Pos,
-                    None => Sign::Empty,
-                }
-            }
         }
-    };
-);
+    }
 
-impl_ToInteger!(BitVec Lsb0 -> Integer LsfLe);
-impl_ToInteger!(BitVec Msb0 -> Integer MsfBe);
+    fn to_uint(&self) -> Integer {
+        let len = self.len();
+        if len < size_of::<[usize; 4]>() * u8::BITS as usize {
+            let mut arr = BitArray::<_, Lsb0>::new([0usize; 4]);
+            let slice = &mut arr[..len];
+            slice.copy_from_bitslice(self);
+            slice.reverse();
+            Integer::from_digits(arr.as_raw_slice(), Order::LsfLe)
+        } else {
+            let mut boxed = BitBox::<usize, Lsb0>::from(self);
+            boxed.force_align();
+            boxed.fill_uninitialized(false);
+            boxed.reverse();
+            Integer::from_digits(boxed.as_raw_slice(), Order::LsfLe)
+        }
+    }
+
+    #[inline]
+    fn to_uint_unambiguous(&self) -> Option<Integer> {
+        if self.first().as_deref() == Some(&true) {
+            Some(self.to_uint())
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    fn sign(&self) -> Sign {
+        match self.first().as_deref() {
+            Some(true) => Sign::Neg,
+            Some(false) => Sign::Pos,
+            None => Sign::Empty,
+        }
+    }
+}
