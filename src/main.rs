@@ -15,7 +15,8 @@ use std::path::PathBuf;
 use clap::{Args, Parser as CliParser, Subcommand};
 use yspace2::ws::{
     bit_pack::BitLexer,
-    inst::{Feature, Features, Inst},
+    inst::{Feature, Features, Inst, InstArg, InstError},
+    int::Int,
     lex::{ByteLexer, Lexer, Utf8Lexer},
     parse::Parser,
     token::Mapping,
@@ -75,6 +76,12 @@ fn disassemble(program: ProgramOptions) {
         if let Inst::Error(err) = inst {
             println!("error: {:?}", err);
         } else {
+            let inst = inst.map_arg(|_, arg| -> Result<_, InstError> {
+                match arg {
+                    InstArg::Int(n) => Ok(InstArg::Int(Int::from(n))),
+                    InstArg::Label(l) => Ok(InstArg::Label(Int::from(l))), // TODO
+                }
+            });
             println!("{}", inst);
         }
     }

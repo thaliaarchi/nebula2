@@ -56,7 +56,7 @@ macro_rules! insts {
             Error(InstError),
         }
 
-        impl RawInst {
+        impl<I, L> Inst<I, L> {
             #[inline]
             pub const fn opcode(&self) -> Opcode {
                 match self {
@@ -66,14 +66,13 @@ macro_rules! insts {
             }
         }
 
-        impl Display for RawInst {
+        impl<I: Display, L: Display> Display for Inst<I, L> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                // TODO: uses Debug for arguments
                 f.write_str(self.opcode().into())?;
                 paste! {
                     match self {
                         $(Inst::$opcode $(([<$arg:snake>]))? => {
-                            map_or!($($arg)?, write!(f, " {:?}", $([<$arg:snake>])?), Ok(()))
+                            map_or!($($arg)?, write!(f, " {}", $([<$arg:snake>])?), Ok(()))
                         }),+,
                         Inst::Error(err) => write!(f, " {:?}", err),
                     }

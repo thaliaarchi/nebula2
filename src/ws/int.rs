@@ -35,7 +35,9 @@
 //! | MsfBe | Msb0      | most-significant bit first  | big-endian      |
 //! |       | LocalBits | alias to Lsb0 or Msb0       | host endianness |
 
+use std::fmt::{self, Display, Formatter};
 use std::mem::size_of;
+use std::ops::{Deref, DerefMut};
 
 use bitvec::prelude::*;
 use rug::{integer::Order, ops::NegAssign, Integer};
@@ -45,11 +47,81 @@ assert_type_eq_all!(BitSlice, BitSlice<usize, Lsb0>);
 assert_type_eq_all!(BitVec, BitVec<usize, Lsb0>);
 assert_type_eq_all!(BitBox, BitBox<usize, Lsb0>);
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Int {
+    raw: IntSource,
+    int: Integer,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum IntSource {
+    /// Bit representation with the sign in the first bit (if nonempty) and
+    /// possible leading zeros.
+    Bits(BitVec),
+    /// String representation from Whitespace assembly source.
+    String(String),
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Sign {
     Pos,
     Neg,
     Empty,
+}
+
+impl Int {
+    #[inline]
+    pub fn sign(&self) -> Option<Sign> {
+        match &self.raw {
+            IntSource::Bits(bits) => Some(bits.sign()),
+            IntSource::String(_) => None,
+        }
+    }
+}
+
+impl From<BitVec> for Int {
+    #[inline]
+    fn from(bits: BitVec) -> Self {
+        let int = bits.to_int();
+        Int { raw: IntSource::Bits(bits), int }
+    }
+}
+
+impl Deref for Int {
+    type Target = Integer;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.int
+    }
+}
+
+impl DerefMut for Int {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.int
+    }
+}
+
+impl Display for Int {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match &self.raw {
+            IntSource::Bits(bits) => {
+                if let Some(false) = bits.get(1).as_deref() {
+                    write!(
+                        f,
+                        "0b{}",
+                        bits.iter()
+                            .map(|b| if *b { '1' } else { '0' })
+                            .collect::<String>()
+                    )
+                } else {
+                    write!(f, "{}", self.int)
+                }
+            }
+            IntSource::String(s) => f.write_str(s.as_str()),
+        }
+    }
 }
 
 pub trait ToInteger {

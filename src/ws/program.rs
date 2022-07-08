@@ -8,7 +8,7 @@
 
 use std::collections::{hash_map::Entry, HashMap};
 use std::mem::{ManuallyDrop, MaybeUninit};
-use std::ops::{Deref, DerefMut, Index, IndexMut};
+use std::ops::{Index, IndexMut};
 
 use bitvec::vec::BitVec;
 use rug::Integer;
@@ -16,7 +16,7 @@ use smallvec::SmallVec;
 use static_assertions::assert_eq_size;
 
 use crate::ws::inst::{Inst, InstArg, InstError, Opcode, RawInst};
-use crate::ws::int::{Sign, ToInteger};
+use crate::ws::int::{Int, ToInteger};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Program {
@@ -66,57 +66,6 @@ macro_rules! id_index(
 
 id_index!(InstId(u32) indexes ProgramInst in Vec<ProgramInst>, [ProgramInst]);
 id_index!(LabelId(u32) indexes LabelData in Vec<LabelData>, [LabelData]);
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Int {
-    raw: IntSource,
-    int: Integer,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum IntSource {
-    /// Bit representation with the sign in the first bit (if nonempty) and
-    /// possible leading zeros.
-    Bits(BitVec),
-    /// String representation from Whitespace assembly source.
-    String(String),
-}
-
-impl Int {
-    #[inline]
-    pub fn sign(&self) -> Option<Sign> {
-        match &self.raw {
-            IntSource::Bits(bits) => Some(bits.sign()),
-            IntSource::String(_) => None,
-        }
-    }
-}
-
-impl From<BitVec> for Int {
-    #[inline]
-    fn from(bits: BitVec) -> Self {
-        Int {
-            raw: IntSource::Bits(bits),
-            int: Integer::new(), // TODO
-        }
-    }
-}
-
-impl Deref for Int {
-    type Target = Integer;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.int
-    }
-}
-
-impl DerefMut for Int {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.int
-    }
-}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct LabelData {
