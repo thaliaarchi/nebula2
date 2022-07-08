@@ -150,13 +150,12 @@ impl const From<TokenVec> for TokenSeq {
 
 #[cfg(test)]
 mod tests {
-    use super::Token::*;
     use super::*;
 
     #[test]
     fn convert_token_seq() {
         macro_rules! token_vecs(
-            ($([$($seq:expr)*]),+$(,)?) => { vec![$(token_vec![$($seq)*]),+] }
+            ($([$($seq:tt)*]),+$(,)?) => { vec![$(token_vec![$($seq)*]),+] }
         );
         let seqs: Vec<TokenVec> = token_vecs![
             [],

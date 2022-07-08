@@ -9,7 +9,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::iter::FusedIterator;
 
-use bitvec::{order::BitOrder, store::BitStore, vec::BitVec};
+use bitvec::{order::BitOrder, slice::BitSlice, store::BitStore};
 
 use crate::ws::token::{Token, TokenSeq};
 
@@ -91,14 +91,14 @@ impl TokenVec {
     }
 
     #[inline]
-    pub fn append_bits<T: BitStore, O: BitOrder>(&mut self, bits: &BitVec<T, O>) {
+    pub fn append_bits<T: BitStore, O: BitOrder>(&mut self, bits: &BitSlice<T, O>) {
         for bit in bits {
             self.push(if *bit { Token::T } else { Token::S });
         }
     }
 
     #[inline]
-    pub fn append_bits_front<T: BitStore, O: BitOrder>(&mut self, bits: &BitVec<T, O>) {
+    pub fn append_bits_front<T: BitStore, O: BitOrder>(&mut self, bits: &BitSlice<T, O>) {
         for bit in bits {
             self.push_front(if *bit { Token::T } else { Token::S });
         }
@@ -180,6 +180,14 @@ impl const From<TokenSeq> for TokenVec {
         while !seq.is_empty() {
             toks.push_front(seq.pop());
         }
+        toks
+    }
+}
+
+impl<T: BitStore, O: BitOrder> From<&BitSlice<T, O>> for TokenVec {
+    fn from(bits: &BitSlice<T, O>) -> Self {
+        let mut toks = TokenVec::new();
+        toks.append_bits(bits);
         toks
     }
 }
