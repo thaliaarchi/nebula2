@@ -16,6 +16,7 @@ use smallvec::SmallVec;
 use static_assertions::assert_eq_size;
 
 use crate::ws::inst::{Inst, InstArg, InstError, Opcode, RawInst};
+use crate::ws::int::{Sign, ToInteger};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Program {
@@ -81,30 +82,12 @@ pub enum IntSource {
     String(String),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Sign {
-    Pos,
-    Neg,
-    Empty,
-}
-
 impl Int {
     #[inline]
     pub fn sign(&self) -> Option<Sign> {
         match &self.raw {
-            IntSource::Bits(bits) => Some(Self::bits_sign(bits)),
+            IntSource::Bits(bits) => Some(bits.sign()),
             IntSource::String(_) => None,
-        }
-    }
-
-    #[inline]
-    fn bits_sign(bits: &BitVec) -> Sign {
-        if bits.len() == 0 {
-            Sign::Empty
-        } else if bits[0] {
-            Sign::Neg
-        } else {
-            Sign::Pos
         }
     }
 }
@@ -172,10 +155,12 @@ pub enum LabelOrder {
 
 impl LabelData {
     pub fn new(id: LabelId, bits: BitVec) -> Self {
+        let mut bits = bits;
+        let uint = bits.to_uint_unambiguous();
         LabelData {
             id,
             bits,
-            uint: None, // TODO
+            uint,
             names: Vec::new(),
             defs: SmallVec::new(),
             uses: SmallVec::new(),
