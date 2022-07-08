@@ -36,7 +36,6 @@
 //! |       | LocalBits | alias to Lsb0 or Msb0       | host endianness |
 
 use std::fmt::{self, Display, Formatter};
-use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
 
 use bitvec::prelude::*;
@@ -107,16 +106,23 @@ impl Display for Int {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self.raw {
             IntSource::Bits(bits) => {
-                if let Some(false) = bits.get(1).as_deref() {
-                    write!(
-                        f,
-                        "0b{}",
-                        bits.iter()
-                            .map(|b| if *b { '1' } else { '0' })
-                            .collect::<String>()
-                    )
-                } else {
+                if bits.get(1).as_deref() == Some(&true) || bits.len() == 2 {
                     write!(f, "{}", self.int)
+                } else {
+                    // Write numbers with leading zeros in base 2
+                    let sign = if bits.get(0).as_deref() == Some(&true) {
+                        "-"
+                    } else if bits.len() == 1 {
+                        // Sign-only numbers need an explicit positive sign
+                        "+"
+                    } else {
+                        ""
+                    };
+                    let bin = bits[1..]
+                        .iter()
+                        .map(|b| if *b { '1' } else { '0' })
+                        .collect::<String>();
+                    write!(f, "{}0b{}", sign, bin)
                 }
             }
             IntSource::String(s) => f.write_str(s.as_str()),
@@ -147,7 +153,7 @@ impl ToInteger for BitSlice {
 
     fn to_uint(&self) -> Integer {
         let len = self.len();
-        if len < size_of::<[usize; 4]>() * u8::BITS as usize {
+        if len < usize::BITS as usize * 4 {
             let mut arr = BitArray::<_, Lsb0>::new([0usize; 4]);
             let slice = &mut arr[..len];
             slice.copy_from_bitslice(self);
