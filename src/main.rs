@@ -16,7 +16,7 @@ use clap::{Args, Parser as CliParser, Subcommand};
 use yspace2::ws::{
     bit_pack::BitLexer,
     inst::{Feature, Features, Inst, InstArg, InstError},
-    int::Int,
+    int::IntLiteral,
     lex::{ByteLexer, Lexer, Utf8Lexer},
     parse::{ParseTable, Parser},
     token::Mapping,
@@ -79,8 +79,8 @@ fn disassemble(program: ProgramOptions) {
         } else {
             let inst = inst.map_arg(|_, arg| -> Result<_, InstError> {
                 match arg {
-                    InstArg::Int(n) => Ok(InstArg::Int(Int::from(n))),
-                    InstArg::Label(l) => Ok(InstArg::Label(Int::from(l))), // TODO
+                    InstArg::Int(n) => Ok(InstArg::Int(IntLiteral::from(n))),
+                    InstArg::Label(l) => Ok(InstArg::Label(IntLiteral::from(l))), // TODO
                 }
             });
             println!("{}", inst);

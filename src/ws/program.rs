@@ -16,7 +16,7 @@ use smallvec::SmallVec;
 use static_assertions::assert_eq_size;
 
 use crate::ws::inst::{Inst, InstArg, InstError, Opcode, RawInst};
-use crate::ws::int::{Int, ToInteger};
+use crate::ws::int::{IntLiteral, ToInteger};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Program {
@@ -24,7 +24,7 @@ pub struct Program {
     labels: Vec<LabelData>,
 }
 
-pub type ProgramInst = Inst<Int, LabelId>;
+pub type ProgramInst = Inst<IntLiteral, LabelId>;
 
 macro_rules! id_index(
     ($Id:ident($Int:ty) indexes $T:ident in $($Container:ty),+) => {
@@ -205,7 +205,7 @@ impl LabelResolver {
     pub fn resolve(&mut self, inst: RawInst, id: InstId) -> ProgramInst {
         inst.map_arg(|opcode, arg| -> Result<_, InstError> {
             match arg {
-                InstArg::Int(n) => Ok(InstArg::Int(Int::from(n))),
+                InstArg::Int(n) => Ok(InstArg::Int(IntLiteral::from(n))),
                 InstArg::Label(l) => Ok(InstArg::Label(self.insert(l, id, opcode))),
             }
         })

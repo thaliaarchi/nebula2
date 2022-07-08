@@ -47,7 +47,7 @@ assert_type_eq_all!(BitVec, BitVec<usize, Lsb0>);
 assert_type_eq_all!(BitBox, BitBox<usize, Lsb0>);
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Int {
+pub struct IntLiteral {
     raw: IntSource,
     int: Integer,
 }
@@ -68,7 +68,7 @@ pub enum Sign {
     Empty,
 }
 
-impl Int {
+impl IntLiteral {
     #[inline]
     pub fn sign(&self) -> Option<Sign> {
         match &self.raw {
@@ -78,15 +78,15 @@ impl Int {
     }
 }
 
-impl From<BitVec> for Int {
+impl From<BitVec> for IntLiteral {
     #[inline]
     fn from(bits: BitVec) -> Self {
         let int = bits.to_int();
-        Int { raw: IntSource::Bits(bits), int }
+        IntLiteral { raw: IntSource::Bits(bits), int }
     }
 }
 
-impl Deref for Int {
+impl Deref for IntLiteral {
     type Target = Integer;
 
     #[inline]
@@ -95,14 +95,14 @@ impl Deref for Int {
     }
 }
 
-impl DerefMut for Int {
+impl DerefMut for IntLiteral {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.int
     }
 }
 
-impl Display for Int {
+impl Display for IntLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self.raw {
             IntSource::Bits(bits) => {
