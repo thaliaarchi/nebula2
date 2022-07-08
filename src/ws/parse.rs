@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::iter::FusedIterator;
 
-use bitvec::prelude::BitVec;
+use bitvec::vec::BitVec;
 use smallvec::{smallvec, SmallVec};
 use strum::IntoEnumIterator;
 

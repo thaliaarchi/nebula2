@@ -10,7 +10,7 @@ use std::collections::{hash_map::Entry, HashMap};
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
-use bitvec::prelude::BitVec;
+use bitvec::vec::BitVec;
 use rug::Integer;
 use smallvec::SmallVec;
 use static_assertions::assert_eq_size;

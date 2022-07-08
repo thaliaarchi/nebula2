@@ -8,7 +8,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
-use bitvec::prelude::BitVec;
+use bitvec::vec::BitVec;
 use enumset::{EnumSet, EnumSetType};
 use paste::paste;
 use strum::{Display, EnumIter, IntoStaticStr};
