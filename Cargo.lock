@@ -245,6 +245,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
+name = "nebula2"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "bitvec",
+ "bstr",
+ "clap",
+ "enumset",
+ "paste",
+ "rug",
+ "smallvec",
+ "static_assertions",
+ "strum",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -567,20 +583,4 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30b31594f29d27036c383b53b59ed3476874d518f0efb151b27a4c275141390e"
 dependencies = [
  "tap",
-]
-
-[[package]]
-name = "yspace2"
-version = "0.1.0"
-dependencies = [
- "arrayvec",
- "bitvec",
- "bstr",
- "clap",
- "enumset",
- "paste",
- "rug",
- "smallvec",
- "static_assertions",
- "strum",
 ]
