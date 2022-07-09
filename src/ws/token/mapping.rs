@@ -11,35 +11,35 @@ use std::iter::FusedIterator;
 use crate::text::{ByteIterator, EncodingError, Utf8Iterator};
 use crate::ws::token::Token;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Mapping<T> {
     pub s: T,
     pub t: T,
     pub l: T,
 }
 
-impl<T: Copy + Eq> Mapping<T> {
+impl<T: Eq> Mapping<T> {
     #[inline]
     pub const fn new(s: T, t: T, l: T) -> Self {
         Mapping { s, t, l }
     }
 
     #[inline]
-    pub fn map(&self, v: T) -> Option<Token> {
+    pub fn map(&self, v: &T) -> Option<Token> {
         match v {
-            _ if v == self.s => Some(Token::S),
-            _ if v == self.t => Some(Token::T),
-            _ if v == self.l => Some(Token::L),
+            _ if v == &self.s => Some(Token::S),
+            _ if v == &self.t => Some(Token::T),
+            _ if v == &self.l => Some(Token::L),
             _ => None,
         }
     }
 
     #[inline]
-    pub const fn map_token(&self, tok: Token) -> T {
+    pub const fn map_token(&self, tok: Token) -> &T {
         match tok {
-            Token::S => self.s,
-            Token::T => self.t,
-            Token::L => self.l,
+            Token::S => &self.s,
+            Token::T => &self.t,
+            Token::L => &self.l,
         }
     }
 }
@@ -102,7 +102,7 @@ impl<'a> MappingLexer<ByteIterator<'a>, u8> {
 impl<I, T> Iterator for MappingLexer<I, T>
 where
     I: Iterator<Item = Result<T, EncodingError>>,
-    T: Copy + Eq,
+    T: Eq,
 {
     type Item = Result<Token, EncodingError>;
 
@@ -110,7 +110,7 @@ where
         loop {
             match self.iter.next() {
                 Some(Ok(v)) => {
-                    if let Some(tok) = self.map.map(v) {
+                    if let Some(tok) = self.map.map(&v) {
                         return Some(Ok(tok));
                     }
                 }
@@ -124,6 +124,6 @@ where
 impl<I, T> const FusedIterator for MappingLexer<I, T>
 where
     I: Iterator<Item = Result<T, EncodingError>> + FusedIterator,
-    T: Copy + Eq,
+    T: Eq,
 {
 }
