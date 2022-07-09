@@ -6,79 +6,7 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
-use std::mem;
-
-pub use crate::ws::token_vec::{token_vec, TokenVec};
-
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Token {
-    S = 0,
-    T = 1,
-    L = 2,
-}
-
-impl Token {
-    #[inline]
-    pub const unsafe fn from_unchecked(n: u8) -> Self {
-        mem::transmute(n)
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Mapping<T> {
-    pub s: T,
-    pub t: T,
-    pub l: T,
-}
-
-impl<T: Copy + Eq> Mapping<T> {
-    #[inline]
-    pub const fn new(s: T, t: T, l: T) -> Self {
-        Mapping { s, t, l }
-    }
-
-    #[inline]
-    pub fn map(&self, v: T) -> Option<Token> {
-        match v {
-            _ if v == self.s => Some(Token::S),
-            _ if v == self.t => Some(Token::T),
-            _ if v == self.l => Some(Token::L),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub const fn map_token(&self, tok: Token) -> T {
-        match tok {
-            Token::S => self.s,
-            Token::T => self.t,
-            Token::L => self.l,
-        }
-    }
-}
-
-impl Mapping<char> {
-    pub const STL: Self = Mapping::new('S', 'T', 'L');
-}
-
-impl Mapping<u8> {
-    pub const STL: Self = Mapping::new(b'S', b'T', b'L');
-}
-
-impl const Default for Mapping<char> {
-    #[inline]
-    fn default() -> Self {
-        Mapping::new(' ', '\t', '\n')
-    }
-}
-
-impl const Default for Mapping<u8> {
-    #[inline]
-    fn default() -> Self {
-        Mapping::new(b' ', b'\t', b'\n')
-    }
-}
+use crate::ws::token::{Token, TokenVec};
 
 // Maximum TokenSeq value for each integer width:
 // - u8  [T T L L L]
@@ -87,7 +15,7 @@ impl const Default for Mapping<u8> {
 // - u64 [L S T S S T L L S L L S L S S L S L L L S S L L T S S T T S T T L T S T T S S S S]
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct TokenSeq(pub u32);
+pub struct TokenSeq(pub u32);
 
 impl TokenSeq {
     #[inline]
@@ -151,6 +79,7 @@ impl const From<TokenVec> for TokenSeq {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ws::token::token_vec;
 
     #[test]
     fn convert_token_seq() {

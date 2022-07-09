@@ -6,21 +6,12 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
-#![feature(
-    box_syntax,
-    concat_bytes,
-    const_array_into_iter_constructors,
-    const_convert,
-    const_default_impls,
-    const_for,
-    const_intoiterator_identity,
-    const_mut_refs,
-    const_trait_impl,
-    inline_const,
-    map_try_insert,
-    never_type,
-    trait_alias
-)]
+pub mod assembly;
+pub mod inst;
+pub mod int;
+pub mod parse;
+pub mod program;
+pub mod token;
 
-pub mod text;
-pub mod ws;
+#[cfg(test)]
+mod tests;

@@ -13,9 +13,8 @@ use enumset::{EnumSet, EnumSetType};
 use paste::paste;
 use strum::{Display, EnumIter, IntoStaticStr};
 
-use crate::ws::lex::Lexer;
 use crate::ws::parse::ParseError;
-use crate::ws::token::{token_vec, Token::*, TokenVec};
+use crate::ws::token::{token_vec, Lexer, Token::*, TokenVec};
 
 pub type RawInst = Inst<BitVec, BitVec>;
 

@@ -14,12 +14,10 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser as CliParser, Subcommand};
 use nebula2::ws::{
-    bit_pack::BitLexer,
     inst::{Feature, Features, Inst, InstArg, InstError},
     int::IntLiteral,
-    lex::{Lexer, MappingLexer},
     parse::{ParseTable, Parser},
-    token::Mapping,
+    token::{BitLexer, Lexer, Mapping, MappingLexer},
 };
 
 #[derive(Debug, CliParser)]

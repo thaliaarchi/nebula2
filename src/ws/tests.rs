@@ -9,11 +9,9 @@
 use bitvec::prelude::*;
 
 use crate::text::EncodingError;
-use crate::ws::bit_pack::BitLexer;
 use crate::ws::inst::{Inst, RawInst};
-use crate::ws::lex::{Lexer, MappingLexer};
 use crate::ws::parse::{ParseTable, Parser};
-use crate::ws::token::{Mapping, Token, Token::*};
+use crate::ws::token::{BitLexer, Lexer, Mapping, MappingLexer, Token, Token::*};
 
 const TUTORIAL_STL: &[u8] = br"
 S S S T L                    push 1

@@ -255,9 +255,9 @@ macro_rules! token_vec[
     (@tok T) => { $crate::ws::token::Token::T };
     (@tok L) => { $crate::ws::token::Token::L };
     (@tok $tok:expr) => { $tok };
-    () => { $crate::ws::token_vec::TokenVec::new() };
+    () => { $crate::ws::token::TokenVec::new() };
     ($($tok:tt)+) => {
-        $crate::ws::token_vec::TokenVec::from(&[$(token_vec!(@tok $tok)),+])
+        $crate::ws::token::TokenVec::from(&[$(token_vec!(@tok $tok)),+])
     };
 ];
 pub use token_vec;

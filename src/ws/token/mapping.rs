@@ -9,9 +9,62 @@
 use std::iter::FusedIterator;
 
 use crate::text::{ByteIterator, EncodingError, Utf8Iterator};
-use crate::ws::token::{Mapping, Token};
+use crate::ws::token::Token;
 
-pub trait Lexer = Iterator<Item = Result<Token, EncodingError>>;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Mapping<T> {
+    pub s: T,
+    pub t: T,
+    pub l: T,
+}
+
+impl<T: Copy + Eq> Mapping<T> {
+    #[inline]
+    pub const fn new(s: T, t: T, l: T) -> Self {
+        Mapping { s, t, l }
+    }
+
+    #[inline]
+    pub fn map(&self, v: T) -> Option<Token> {
+        match v {
+            _ if v == self.s => Some(Token::S),
+            _ if v == self.t => Some(Token::T),
+            _ if v == self.l => Some(Token::L),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub const fn map_token(&self, tok: Token) -> T {
+        match tok {
+            Token::S => self.s,
+            Token::T => self.t,
+            Token::L => self.l,
+        }
+    }
+}
+
+impl Mapping<char> {
+    pub const STL: Self = Mapping::new('S', 'T', 'L');
+}
+
+impl Mapping<u8> {
+    pub const STL: Self = Mapping::new(b'S', b'T', b'L');
+}
+
+impl const Default for Mapping<char> {
+    #[inline]
+    fn default() -> Self {
+        Mapping::new(' ', '\t', '\n')
+    }
+}
+
+impl const Default for Mapping<u8> {
+    #[inline]
+    fn default() -> Self {
+        Mapping::new(b' ', b'\t', b'\n')
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct MappingLexer<I, T> {
