@@ -17,6 +17,7 @@
     const_mut_refs,
     const_trait_impl,
     inline_const,
+    map_try_insert,
     never_type,
     trait_alias
 )]
