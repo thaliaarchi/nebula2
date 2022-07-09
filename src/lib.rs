@@ -22,6 +22,7 @@
 )]
 
 pub mod ws {
+    pub mod assembly;
     pub mod bit_pack;
     pub mod inst;
     pub mod int;
