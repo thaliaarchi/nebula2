@@ -8,7 +8,7 @@
 
 use std::iter::FusedIterator;
 
-use crate::ws::lex::LexError;
+use crate::text::EncodingError;
 use crate::ws::token::Token::{self, *};
 
 #[derive(Clone, Debug)]
@@ -50,7 +50,7 @@ impl<'a> BitLexer<'a> {
 }
 
 impl<'a> Iterator for BitLexer<'a> {
-    type Item = Result<Token, LexError>;
+    type Item = Result<Token, EncodingError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.next_bit() {

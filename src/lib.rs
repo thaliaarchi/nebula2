@@ -22,6 +22,11 @@
     trait_alias
 )]
 
+pub mod text {
+    mod iter;
+    pub use iter::*;
+}
+
 pub mod ws {
     pub mod assembly;
     pub mod bit_pack;

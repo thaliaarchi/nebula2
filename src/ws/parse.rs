@@ -14,8 +14,9 @@ use bitvec::vec::BitVec;
 use smallvec::{smallvec, SmallVec};
 use strum::IntoEnumIterator;
 
+use crate::text::EncodingError;
 use crate::ws::inst::{Features, Inst, InstArg, Opcode, RawInst};
-use crate::ws::lex::{LexError, Lexer};
+use crate::ws::lex::Lexer;
 use crate::ws::token::{token_vec, Token::*, TokenSeq, TokenVec};
 
 #[derive(Clone, Debug)]
@@ -27,7 +28,7 @@ pub struct Parser<'a, L: Lexer> {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ParseError {
-    LexError(LexError, TokenVec),
+    EncodingError(EncodingError, TokenVec),
     UnknownOpcode(TokenVec),
     IncompleteInst(TokenVec, OpcodeVec),
     UnterminatedArg(Opcode),
@@ -56,7 +57,7 @@ impl<'a, L: Lexer> Parser<'a, L> {
                         let mut tokens = opcode.tokens();
                         tokens.append_bits(&bits);
                         self.partial = Some(PartialState::ParsingArg(opcode, bits));
-                        return Err(ParseError::LexError(err, tokens));
+                        return Err(ParseError::EncodingError(err, tokens));
                     }
                     None => return Err(ParseError::UnterminatedArg(opcode)),
                 }
@@ -89,7 +90,7 @@ impl<'a, L: Lexer> Iterator for Parser<'a, L> {
                 Some(Ok(tok)) => seq.push(tok),
                 Some(Err(err)) => {
                     self.partial = Some(PartialState::ParsingOpcode(seq));
-                    return Some(Inst::from(LexError(err, seq.into())));
+                    return Some(Inst::from(EncodingError(err, seq.into())));
                 }
                 None if seq.is_empty() => return None,
                 None => {

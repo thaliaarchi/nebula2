@@ -8,9 +8,10 @@
 
 use bitvec::prelude::*;
 
+use crate::text::EncodingError;
 use crate::ws::bit_pack::BitLexer;
 use crate::ws::inst::{Inst, RawInst};
-use crate::ws::lex::{ByteLexer, LexError, Lexer, Utf8Lexer};
+use crate::ws::lex::{Lexer, MappingLexer};
 use crate::ws::parse::{ParseTable, Parser};
 use crate::ws::token::{Mapping, Token, Token::*};
 
@@ -68,32 +69,32 @@ fn get_tutorial_insts() -> Vec<RawInst> {
 }
 
 #[test]
-fn lex() -> Result<(), LexError> {
-    let lex = Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL, true);
-    let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
+fn lex() -> Result<(), EncodingError> {
+    let lex = MappingLexer::new_utf8(TUTORIAL_STL, Mapping::<char>::STL, true);
+    let toks = lex.collect::<Result<Vec<_>, EncodingError>>()?;
     assert_eq!(TUTORIAL_TOKENS, toks);
     Ok(())
 }
 
 #[test]
-fn byte_lex() -> Result<(), LexError> {
-    let lex = ByteLexer::new(TUTORIAL_STL, Mapping::<u8>::STL);
-    let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
+fn byte_lex() -> Result<(), EncodingError> {
+    let lex = MappingLexer::new_bytes(TUTORIAL_STL, Mapping::<u8>::STL);
+    let toks = lex.collect::<Result<Vec<_>, EncodingError>>()?;
     assert_eq!(TUTORIAL_TOKENS, toks);
     Ok(())
 }
 
 #[test]
-fn bit_lex() -> Result<(), LexError> {
+fn bit_lex() -> Result<(), EncodingError> {
     let lex = BitLexer::new(TUTORIAL_BITS);
-    let toks = lex.collect::<Result<Vec<_>, LexError>>()?;
+    let toks = lex.collect::<Result<Vec<_>, EncodingError>>()?;
     assert_eq!(TUTORIAL_TOKENS, toks);
     Ok(())
 }
 
 #[test]
 fn parse() {
-    let lex = Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL, true);
+    let lex = MappingLexer::new_utf8(TUTORIAL_STL, Mapping::<char>::STL, true);
     let table = ParseTable::with_all();
     let parser = Parser::new(&table, lex);
     let insts = parser.collect::<Vec<_>>();
@@ -103,8 +104,8 @@ fn parse() {
 #[test]
 fn parse_dyn() {
     let lexers: [Box<dyn Lexer>; 3] = [
-        box Utf8Lexer::new(TUTORIAL_STL, Mapping::<char>::STL, true),
-        box ByteLexer::new(TUTORIAL_STL, Mapping::<u8>::STL),
+        box MappingLexer::new_utf8(TUTORIAL_STL, Mapping::<char>::STL, true),
+        box MappingLexer::new_bytes(TUTORIAL_STL, Mapping::<u8>::STL),
         box BitLexer::new(TUTORIAL_BITS),
     ];
     let table = ParseTable::with_all();
