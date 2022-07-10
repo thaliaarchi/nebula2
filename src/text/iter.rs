@@ -39,6 +39,11 @@ impl<'a> Utf8Iterator<'a> {
     }
 
     #[inline]
+    pub const fn offset(&self) -> usize {
+        self.offset
+    }
+
+    #[inline]
     pub const fn valid_to(&self) -> usize {
         match self.valid_to {
             Some(valid_to) => valid_to,
@@ -85,6 +90,11 @@ impl<'a> ByteIterator<'a> {
     #[inline]
     pub const fn new<B: ~const AsRef<[u8]> + ?Sized>(src: &'a B) -> Self {
         ByteIterator { src: src.as_ref(), offset: 0 }
+    }
+
+    #[inline]
+    pub const fn offset(&self) -> usize {
+        self.offset
     }
 }
 
