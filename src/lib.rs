@@ -7,6 +7,7 @@
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
 #![feature(
+    box_patterns,
     box_syntax,
     concat_bytes,
     const_array_into_iter_constructors,
@@ -16,7 +17,11 @@
     const_intoiterator_identity,
     const_mut_refs,
     const_trait_impl,
+    if_let_guard,
     inline_const,
+    label_break_value,
+    let_chains,
+    let_else,
     map_try_insert,
     never_type,
     trait_alias
