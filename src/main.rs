@@ -73,7 +73,7 @@ fn disassemble(program: ProgramOptions) {
     get_parser!(parser, program);
     for inst in parser {
         if let Inst::Error(err) = inst {
-            println!("error: {:?}", err);
+            println!("error: {err:?}");
         } else {
             let inst = inst.map_arg(|_, arg| -> Result<_, InstError> {
                 match arg {
@@ -81,7 +81,7 @@ fn disassemble(program: ProgramOptions) {
                     InstArg::Label(l) => Ok(InstArg::Label(IntLiteral::from(l))), // TODO
                 }
             });
-            println!("{}", inst);
+            println!("{inst}");
         }
     }
 }
@@ -91,7 +91,7 @@ fn detect_features(program: ProgramOptions) {
     let mut features = Features::empty();
     for inst in parser {
         if let Inst::Error(err) = inst {
-            println!("error: {:?}", err);
+            println!("error: {err:?}");
         } else if let Some(feature) = inst.opcode().feature() {
             features.insert(feature);
         }
@@ -101,6 +101,6 @@ fn detect_features(program: ProgramOptions) {
         println!("- wspace 0.2");
     }
     for feature in features {
-        println!("- {}", feature);
+        println!("- {feature}");
     }
 }

@@ -122,7 +122,7 @@ impl Display for IntLiteral {
                         .iter()
                         .map(|b| if *b { '1' } else { '0' })
                         .collect::<String>();
-                    write!(f, "{}0b{}", sign, bin)
+                    write!(f, "{sign}0b{bin}")
                 }
             }
             IntSource::String(s) => f.write_str(s.as_str()),

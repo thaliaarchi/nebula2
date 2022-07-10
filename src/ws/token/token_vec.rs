@@ -231,7 +231,7 @@ impl Debug for TokenVec {
             if !first {
                 f.write_str(" ")?;
             }
-            write!(f, "{:?}", tok)?;
+            write!(f, "{tok:?}")?;
             first = false;
         }
         f.write_str("]")?;

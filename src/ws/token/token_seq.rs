@@ -99,9 +99,9 @@ mod tests {
         for (i, &toks) in seqs.iter().enumerate() {
             let seq = TokenSeq::from(i);
             let seq2 = TokenSeq::from(toks);
-            assert_eq!(seq, seq2, "TokenSeq::from({:?})", toks);
+            assert_eq!(seq, seq2, "TokenSeq::from({toks:?})");
             let toks2 = TokenVec::from(seq);
-            assert_eq!(toks, toks2, "TokenVec::from({:?})", seq);
+            assert_eq!(toks, toks2, "TokenVec::from({seq:?})");
         }
     }
 }

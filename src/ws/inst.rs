@@ -73,7 +73,7 @@ macro_rules! insts {
                         $(Inst::$opcode $(([<$arg:snake>]))? => {
                             map_or!($($arg)?, write!(f, " {}", $([<$arg:snake>])?), Ok(()))
                         }),+,
-                        Inst::Error(err) => write!(f, " {:?}", err),
+                        Inst::Error(err) => write!(f, " {err:?}"),
                     }
                 }
             }
