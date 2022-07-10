@@ -8,6 +8,8 @@
 
 use std::collections::HashMap;
 
+use compact_str::{CompactString, ToCompactString};
+
 use crate::ws::inst::Opcode;
 
 macro_rules! mnemonics_map {
@@ -16,15 +18,15 @@ macro_rules! mnemonics_map {
             Opcode::$opcode,
             &[$(mnemonics_map!(@stringify $left)),+],
             &[$(mnemonics_map!(@stringify $right)),+],
-        );
+        ).unwrap();
         mnemonics_map!(@insert $map $opcode $($rest)*)
     };
     (@insert $map:ident $opcode:ident) => {};
     (@insert $map:ident $opcode:ident $mnemonic:tt,) => {
-        $map.insert(Opcode::$opcode, mnemonics_map!(@stringify $mnemonic).to_owned());
+        $map.insert(Opcode::$opcode, mnemonics_map!(@stringify $mnemonic)).unwrap();
     };
     (@insert $map:ident $opcode:ident $($mnemonic:tt),+,) => {
-        $map.insert_all(Opcode::$opcode, &[$(mnemonics_map!(@stringify $mnemonic)),+]);
+        $map.insert_all(Opcode::$opcode, &[$(mnemonics_map!(@stringify $mnemonic)),+]).unwrap();
     };
     (@stringify $mnemonic:ident) => { stringify!($mnemonic) };
     (@stringify $mnemonic:literal) => { $mnemonic };
@@ -37,7 +39,14 @@ macro_rules! mnemonics_map {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MnemonicMap {
-    mnemonics: HashMap<String, Opcode>,
+    mnemonics: HashMap<CompactString, Opcode>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct MnemonicError {
+    mnemonic: CompactString,
+    old: Opcode,
+    new: Opcode,
 }
 
 impl MnemonicMap {
@@ -46,41 +55,58 @@ impl MnemonicMap {
         MnemonicMap { mnemonics: HashMap::new() }
     }
 
-    pub fn insert(&mut self, opcode: Opcode, mnemonic: String) {
-        if mnemonic.contains("_") {
-            if let Err(err) = self.mnemonics.try_insert(mnemonic.replace("_", ""), opcode) {
-                if *err.entry.get() != opcode {
-                    panic!("{:?}", err);
-                }
-            }
-        }
+    pub fn insert_compact(
+        &mut self,
+        opcode: Opcode,
+        mnemonic: CompactString,
+    ) -> Result<(), MnemonicError> {
         if let Err(err) = self.mnemonics.try_insert(mnemonic, opcode) {
-            if *err.entry.get() != opcode {
-                panic!("{:?}", err);
+            let old = *err.entry.get();
+            if old != opcode {
+                return Err(MnemonicError {
+                    mnemonic: err.entry.key().clone(),
+                    old,
+                    new: opcode,
+                });
             }
         }
+        Ok(())
     }
 
-    pub fn insert_all(&mut self, opcode: Opcode, mnemonics: &[&str]) {
+    #[inline]
+    pub fn insert(&mut self, opcode: Opcode, mnemonic: &str) -> Result<(), MnemonicError> {
+        self.insert_compact(opcode, mnemonic.to_compact_string())
+    }
+
+    #[inline]
+    pub fn insert_all(&mut self, opcode: Opcode, mnemonics: &[&str]) -> Result<(), MnemonicError> {
         for &mnemonic in mnemonics {
-            self.insert(opcode, mnemonic.to_owned());
+            self.insert(opcode, mnemonic)?;
         }
+        Ok(())
     }
 
-    pub fn insert_prod(&mut self, opcode: Opcode, first: &[&str], second: &[&str]) {
+    #[inline]
+    pub fn insert_prod(
+        &mut self,
+        opcode: Opcode,
+        first: &[&str],
+        second: &[&str],
+    ) -> Result<(), MnemonicError> {
         for &first in first {
             for &second in second {
-                self.insert(opcode, first.to_owned() + "_" + second);
+                self.insert_compact(opcode, first.to_compact_string() + second)?;
             }
         }
+        Ok(())
     }
 
     pub fn with_permissive() -> Self {
         mnemonics_map! {
             Push: [
                 push, psh, pus,
-                push_number, push_num,
-                push_char, push_ch,
+                pushnumber, pushnum,
+                pushchar, pushch,
                 append,
                 "<number>", "<char>",
             ],
@@ -92,8 +118,8 @@ impl MnemonicMap {
             ],
             Copy: [
                 copy,
-                copy_n, copy_nth, copy_at,
-                dup_n, dup_nth, dup_at,
+                copyn, copynth, copyat,
+                dupn, dupnth, dupat,
                 pick,
                 ref,
                 take,
@@ -114,8 +140,8 @@ impl MnemonicMap {
             ],
             Slide: [
                 slide, slid,
-                slide_n,
-                slide_off,
+                sliden,
+                slideoff,
                 "<unsigned>slide",
             ],
             Add: [
@@ -141,13 +167,13 @@ impl MnemonicMap {
             Div: [
                 divide, div,
                 division,
-                integer_division, int_div,
+                integerdivision, intdiv,
                 "/",
             ],
             Mod: [
                 modulo, mod,
                 remainder, rem,
-                division_part,
+                divisionpart,
                 "%",
             ],
             Store: [
@@ -164,8 +190,8 @@ impl MnemonicMap {
             ],
             Label: [
                 label, lbl,
-                mark, mrk, mark_sub, mark_label, mark_location,
-                defun, def, def_label,
+                mark, mrk, marksub, marklabel, marklocation,
+                defun, def, deflabel,
                 part,
                 "<label>:",
                 "%<label>:",
@@ -176,9 +202,9 @@ impl MnemonicMap {
             ],
             Call: [
                 call, cll,
-                call_subroutine, call_sub, call_s, ca_s,
-                j_sr,
-                go_sub,
+                callsubroutine, callsub, calls, cas,
+                jsr,
+                gosub,
                 subroutine,
             ],
             Jmp: [
@@ -188,31 +214,31 @@ impl MnemonicMap {
             ],
             Jz: [
                 [jump, jmp, jm, jp, j, branch, br, b, goto] * [zero, zer, ze, z, null, nil, ez, "0"],
-                [jump, jmp, branch, goto] * [if_zero, if_0, if0, i_z],
+                [jump, jmp, branch, goto] * [ifzero, if0, iz],
                 zero,
             ],
             Jn: [
                 [jump, jmp, jm, jp, j, branch, br, b, goto] * [negative, nega, neg, ne, n, ltz, lz, l0],
-                [jump, jmp, branch, goto] * [if_negative, if_neg, if_n, i_n],
+                [jump, jmp, branch, goto] * [ifnegative, ifneg, ifn, in],
                 negative,
             ],
             Ret: [
-                return, ret, rt_s,
-                end_subroutine, end_sub, end_s, en_s,
-                subroutine_end, sub_end,
-                end_function, end_func,
-                exit_sub,
-                control_back, back,
+                return, ret, rts,
+                endsubroutine, endsub, ends, ens,
+                subroutineend, subend,
+                endfunction, endfunc,
+                exitsub,
+                controlback, back,
                 leave,
             ],
             End: [
-                end_program, end_prog, end_p, end,
+                endprogram, endprog, endp, end,
                 exit,
                 halt, hlt,
                 terminate,
                 quit,
                 die,
-                finish_program, finish,
+                finishprogram, finish,
             ],
             Printc: [
                 [print, output, out, write] * [character, char, chr, ch, c],
@@ -243,15 +269,15 @@ impl MnemonicMap {
                 permr,
             ],
             DumpStack: [
-                dump_stack,
-                debug_print_stack, debug_printstack,
+                dumpstack,
+                debugprintstack,
             ],
             DumpHeap: [
-                dump_heap,
-                debug_print_heap, debug_printheap,
+                dumpheap,
+                debugprintheap,
             ],
             DumpTrace: [
-                dump_trace,
+                dumptrace,
                 trace,
             ],
         }
