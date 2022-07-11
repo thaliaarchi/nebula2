@@ -180,17 +180,32 @@ impl IntLiteral {
             37..=62 => RADIX_DIGIT_VALUES[208..].try_into().unwrap(),
             _ => return Err(ParseError::InvalidRadix),
         };
+
+        // Skip leading zeros
         let mut b = &s.as_bytes()[offset..];
-        while let Some((b'0', b1)) = b.split_first() {
+        let mut leading_zeros = 0usize;
+        while let Some((ch, b1)) = b.split_first() {
+            match ch {
+                b'0' => leading_zeros += 1,
+                b'_' if leading_zeros != 0 => {}
+                _ => break,
+            }
             b = b1;
         }
+        // Only use leading zeros for powers of two
+        let leading_zeros = if radix.is_power_of_two() && leading_zeros != 0 {
+            leading_zeros * radix.log2() as usize
+        } else {
+            0
+        };
         if b.is_empty() {
             return Ok(IntLiteral {
-                bits: BitVec::new(),
+                bits: Self::signed_bitvec_from_zero(sign, leading_zeros),
                 string: Some(s),
                 int: Integer::new(),
             });
         }
+
         let mut digits = Vec::with_capacity(b.len());
         for (i, &ch) in b.iter().enumerate() {
             let digit = table[ch as usize];
@@ -198,6 +213,7 @@ impl IntLiteral {
                 if ch == b'_' && i != 0 && b[i - 1] != b'_' {
                     continue;
                 }
+                // The invalid digit may be non-ASCII; decode it
                 return Err(ParseError::InvalidDigit {
                     ch: bstr::decode_utf8(&b[i..]).0.unwrap_or('\u{FFFD}'),
                     offset: s.len() - b.len() + i,
@@ -205,13 +221,10 @@ impl IntLiteral {
             }
             digits.push(digit);
         }
+
         let int = Self::integer_from_digits(digits, sign, radix);
-        Ok(IntLiteral {
-            // TODO: Convert Integer to BitVec.
-            bits: BitVec::new(),
-            int,
-            string: Some(s),
-        })
+        let bits = Self::signed_bitvec_from_integer(&int, sign, leading_zeros);
+        Ok(IntLiteral { bits, int, string: Some(s) })
     }
 
     /// Constructs an Integer from a Vec of digits, where each digit is in the
@@ -248,6 +261,40 @@ impl IntLiteral {
             int.neg_assign();
         }
         int
+    }
+
+    fn unsigned_bitvec_from_integer(int: &Integer) -> BitVec {
+        let mut bits = BitVec::<usize, Lsb0>::from_vec(int.to_digits(Order::LsfLe));
+        bits.truncate(bits.last_one().map_or(0, |i| i + 1));
+        bits.reverse();
+        bits
+    }
+
+    fn signed_bitvec_from_integer(int: &Integer, sign: Sign, leading_zeros: usize) -> BitVec {
+        let mut bits = Self::unsigned_bitvec_from_integer(int);
+        let len = bits.len();
+        // Newly-reserved bits are guaranteed to be allocated to zero
+        bits.reserve(leading_zeros + 1);
+        unsafe { bits.set_len(len + leading_zeros + 1) };
+        // Panics when shifting by the length
+        if len != 0 {
+            bits.shift_right(leading_zeros + 1);
+        }
+        if sign == Sign::Neg {
+            bits.set(0, true);
+        }
+        bits
+    }
+
+    fn signed_bitvec_from_zero(sign: Sign, n_zeros: usize) -> BitVec {
+        if n_zeros == 0 && sign == Sign::Empty {
+            return BitVec::new();
+        }
+        let mut bits = BitVec::repeat(false, n_zeros + 1);
+        if sign == Sign::Neg {
+            bits.set(0, true);
+        }
+        bits
     }
 
     #[inline]
