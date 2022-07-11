@@ -280,6 +280,7 @@ dependencies = [
  "clap",
  "compact_str",
  "enumset",
+ "gmp-mpfr-sys",
  "paste",
  "rug",
  "smallvec",

@@ -45,6 +45,7 @@ use std::ops::{Deref, DerefMut};
 
 use bitvec::prelude::*;
 use compact_str::CompactString;
+use gmp_mpfr_sys::gmp;
 use rug::{integer::Order, ops::NegAssign, Integer};
 use static_assertions::assert_type_eq_all;
 
@@ -74,15 +75,38 @@ pub enum Sign {
 pub enum ParseError {
     InvalidRadix,
     InvalidDigit { ch: char, offset: usize },
-    Empty,
+    NoDigits,
 }
 
 impl IntLiteral {
+    /// Parses an integer with the given radix. A radix in 2..=36 uses the
+    /// case-insensitive alphabet 0-9A-Z, so upper- and lowercase letters are
+    /// equivalent. A radix in 37..=62 uses the case-sensitive alphabet
+    /// 0-9A-Za-z.
     pub fn parse_radix(s: CompactString, radix: u32) -> Result<Self, ParseError> {
-        let (sign, offset) = Self::parse_sign(s.as_bytes());
+        let b = s.as_bytes();
+        let (sign, offset) = Self::parse_sign(b);
+        if offset == b.len() {
+            return Err(ParseError::NoDigits);
+        }
         Self::parse_digits(s, offset, sign, radix)
     }
 
+    /// Parses an Erlang-like integer literal of the form `base#value`, where
+    /// `base` is in 2..=62, or unprefixed `value` (for base 10). Single
+    /// underscores may separate digits.
+    ///
+    /// Additionally, unlike Erlang:
+    /// - bases 37..=62 are also allowed, which use the case-sensitive alphabet
+    ///   0-9A-Za-z
+    /// - letter aliases may be used for `base`: `b`/`B` for binary, `o`/`O` for
+    ///   octal, and `x`/`X` for hexadecimal
+    /// - and `value` may be empty, to allow for expressing all forms of
+    ///   Whitespace bit patterns
+    ///
+    /// Specifically, it has the grammar
+    /// `/[+-]?((\d{1,2}|[bBoOxX])#)?[0-9A-Za-z][0-9A-Za-z_]*/`, with the base
+    /// and digits checked to be in range.
     pub fn parse_erlang_style(s: CompactString) -> Result<Self, ParseError> {
         let b = s.as_bytes();
         let (sign, offset) = Self::parse_sign(b);
@@ -99,11 +123,13 @@ impl IntLiteral {
             ),
             [r0, r1, b'#', ..] => (
                 match (r0, r1) {
-                    (b'0'..=b'9', b'0'..=b'9') => ((r1 - b'0') * 10 + r0) as u32,
+                    (b'1'..=b'6', b'0'..=b'9') => ((r0 - b'0') * 10 + r1 - b'0') as u32,
                     _ => return Err(ParseError::InvalidRadix),
                 },
                 offset + 3,
             ),
+            // Allow the digits to be omitted only with an explicit radix.
+            [] => return Err(ParseError::NoDigits),
             _ => (10, offset),
         };
         match Self::parse_digits(s, offset, sign, radix) {
@@ -112,6 +138,14 @@ impl IntLiteral {
         }
     }
 
+    /// Parses a C-like integer literal with an optional prefix that denotes the
+    /// base: `0b`/`0B` for binary, `0`/`0o`/`0O` for octal, `0x`/`0X` for
+    /// hexadecimal, or decimal otherwise. Single underscores may separate
+    /// digits.
+    ///
+    /// Specifically, it has the grammar
+    /// `/[+-]?(0[bBoOxX]?)?[0-9A-Za-z][0-9A-Za-z_]*/`, with the base and digits
+    /// checked to be in range.
     pub fn parse_c_style(s: CompactString) -> Result<Self, ParseError> {
         let b = s.as_bytes();
         let (sign, offset) = Self::parse_sign(b);
@@ -120,6 +154,7 @@ impl IntLiteral {
             [b'0', b'o' | b'O', ..] => (8, offset + 2),
             [b'0', b'x' | b'X', ..] => (16, offset + 2),
             [b'0', ..] => (8, offset + 1),
+            [] => return Err(ParseError::NoDigits),
             _ => (10, offset),
         };
         Self::parse_digits(s, offset, sign, radix)
@@ -160,7 +195,7 @@ impl IntLiteral {
         for (i, &ch) in b.iter().enumerate() {
             let digit = table[ch as usize];
             if unlikely(digit as u32 >= radix) {
-                if ch == b'_' && i != 0 {
+                if ch == b'_' && i != 0 && b[i - 1] != b'_' {
                     continue;
                 }
                 return Err(ParseError::InvalidDigit {
@@ -170,19 +205,49 @@ impl IntLiteral {
             }
             digits.push(digit);
         }
-        // TODO: Construct rug::Integer via mpn_set_str like in
-        // <rug::integer::ParseIncomplete as rug::Assign>::assign.
-        // https://gitlab.com/tspiteri/rug/-/issues/41
-        let mut int = Integer::new();
-        if sign == Sign::Neg {
-            int.neg_assign();
-        }
+        let int = Self::integer_from_digits(digits, sign, radix);
         Ok(IntLiteral {
             // TODO: Convert Integer to BitVec.
             bits: BitVec::new(),
             int,
             string: Some(s),
         })
+    }
+
+    /// Constructs an Integer from a Vec of digits, where each digit is in the
+    /// range 0..radix, i.e., not ASCII characters.
+    ///
+    /// Adapted from Rug internal functions:
+    /// `<rug::integer::ParseIncomplete as rug::Assign>::assign`
+    /// and `rug::ext::xmpz::realloc_for_mpn_set_str`.
+    ///
+    /// Compensates for Rug missing a higher-level API for using `mpn_set_str`:
+    /// https://gitlab.com/tspiteri/rug/-/issues/41
+    fn integer_from_digits(digits: Vec<u8>, sign: Sign, radix: u32) -> Integer {
+        let mut int = Integer::new();
+        let raw = int.as_raw_mut();
+
+        // Add 1 to make the floored integer log be ceiling
+        let bits = (radix.log2() as usize + 1) * digits.len();
+        // Use integer ceiling division
+        let limb_bits = gmp::LIMB_BITS as usize;
+        let limbs = (bits + limb_bits - 1) / limb_bits;
+        unsafe {
+            // Add 1, because `mpn_set_str` requires an extra limb
+            gmp::_mpz_realloc(raw, limbs as gmp::size_t + 1);
+
+            let size = gmp::mpn_set_str(
+                (*raw).d.as_ptr(),
+                digits.as_ptr(),
+                digits.len(),
+                radix as i32,
+            );
+            (*raw).size = if sign == Sign::Neg { -size } else { size } as i32;
+        }
+        if sign == Sign::Neg {
+            int.neg_assign();
+        }
+        int
     }
 
     #[inline]
@@ -277,7 +342,7 @@ impl Display for IntLiteral {
                     .iter()
                     .map(|b| if *b { '1' } else { '0' })
                     .collect::<String>();
-                write!(f, "{sign}0b{bin}")
+                write!(f, "{sign}b#{bin}")
             }
         }
     }

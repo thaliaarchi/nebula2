@@ -20,6 +20,7 @@
     core_intrinsics,
     if_let_guard,
     inline_const,
+    int_log,
     label_break_value,
     let_chains,
     let_else,
