@@ -17,6 +17,7 @@
     const_intoiterator_identity,
     const_mut_refs,
     const_trait_impl,
+    core_intrinsics,
     if_let_guard,
     inline_const,
     label_break_value,
@@ -24,6 +25,7 @@
     let_else,
     map_try_insert,
     never_type,
+    split_array,
     trait_alias
 )]
 
