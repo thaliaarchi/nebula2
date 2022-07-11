@@ -75,7 +75,7 @@ pub enum Sign {
 pub enum ParseError {
     InvalidRadix,
     InvalidDigit { ch: char, offset: usize },
-    IllegalUnderscore { offset: usize },
+    LeadingUnderscore,
     NoDigits,
 }
 
@@ -94,20 +94,26 @@ impl IntLiteral {
     }
 
     /// Parses an Erlang-like integer literal of the form `base#value`, where
-    /// `base` is in 2..=62, or unprefixed `value` (for base 10). Single
-    /// underscores may separate digits.
+    /// `base` is in 2..=62, or just `value` (for base 10). Underscores may
+    /// separate digits.
     ///
-    /// Additionally, unlike Erlang:
-    /// - bases 37..=62 are also allowed, which use the case-sensitive alphabet
+    /// ## Differences from Erlang
+    ///
+    /// - Bases 37..=62 are also allowed, which use the case-sensitive alphabet
     ///   0-9A-Za-z
-    /// - letter aliases may be used for `base`: `b`/`B` for binary, `o`/`O` for
+    /// - Letter aliases may be used for `base`: `b`/`B` for binary, `o`/`O` for
     ///   octal, and `x`/`X` for hexadecimal
-    /// - and `value` may be empty, to allow for expressing all forms of
+    /// - `value` for base 2 may be empty, to allow for expressing all forms of
     ///   Whitespace bit patterns
     ///
-    /// Specifically, it has the grammar
-    /// `/[+-]?((\d{1,2}|[bBoOxX])#)?[0-9A-Za-z][0-9A-Za-z_]*/`, with the base
-    /// and digits checked to be in range.
+    /// ## Grammar
+    ///
+    /// - Base 2: `[+-]?[2bB]#[01_]*` (note the optional digits)
+    /// - Base 8: `[+-]?[8oO]#[0-7_]+`
+    /// - Base 10: `[+-]?(10#[0-9_]+|[0-9][0-9_]*)`
+    /// - Base 16: `[+-]?(16|[xX])#[0-9A-Fa-f_]+`
+    /// - Other bases: `[+-]?[0-9]{1,2}#[0-9A-Za-z_]+`, where the base and
+    ///   digits must be in range
     pub fn parse_erlang_style(s: CompactString) -> Result<Self, ParseError> {
         let b = s.as_bytes();
         let (sign, offset) = Self::parse_sign(b);
@@ -129,6 +135,7 @@ impl IntLiteral {
                 },
                 offset + 3,
             ),
+            [b'_', ..] => return Err(ParseError::LeadingUnderscore),
             // Allow the digits to be omitted only with an explicit radix.
             [] => return Err(ParseError::NoDigits),
             _ => (10, offset),
@@ -141,12 +148,14 @@ impl IntLiteral {
 
     /// Parses a C-like integer literal with an optional prefix that denotes the
     /// base: `0b`/`0B` for binary, `0`/`0o`/`0O` for octal, `0x`/`0X` for
-    /// hexadecimal, or decimal otherwise. Single underscores may separate
-    /// digits.
+    /// hexadecimal, or decimal otherwise. Underscores may separate digits.
     ///
-    /// Specifically, it has the grammar
-    /// `/[+-]?(0[bBoOxX]?)?[0-9A-Za-z][0-9A-Za-z_]*/`, with the base and digits
-    /// checked to be in range.
+    /// ## Grammar
+    ///
+    /// - Base 2: `[+-]?0[bB][01_]+`
+    /// - Base 8: `[+-]?0[oO]?[0-7_]+`
+    /// - Base 10: `[+-]?[0-9][0-9_]*`
+    /// - Base 16: `[+-]?0[xX]?[0-9A-Fa-f_]+`
     pub fn parse_c_style(s: CompactString) -> Result<Self, ParseError> {
         let b = s.as_bytes();
         let (sign, offset) = Self::parse_sign(b);
@@ -155,6 +164,7 @@ impl IntLiteral {
             [b'0', b'o' | b'O', ..] => (8, offset + 2),
             [b'0', b'x' | b'X', ..] => (16, offset + 2),
             [b'0', _, ..] => (8, offset + 1),
+            [b'_', ..] => return Err(ParseError::LeadingUnderscore),
             _ => (10, offset),
         };
         if offset == b.len() {
@@ -190,17 +200,15 @@ impl IntLiteral {
         while let Some((ch, b1)) = b.split_first() {
             match ch {
                 b'0' => leading_zeros += 1,
-                b'_' if leading_zeros != 0 => {} // TODO: Fix
+                b'_' => {}
                 _ => break,
             }
             b = b1;
         }
-        // Only use leading zeros for power-of-two radices and zero
-        let leading_zeros = if leading_zeros != 0 && radix.is_power_of_two() {
-            // TODO: Handle leading zeros in the binary representation of the
-            // first char
-            leading_zeros * radix.log2() as usize
-        } else if leading_zeros != 0 && b.is_empty() {
+        // Only use leading zeros for base 2 and zero
+        let leading_zeros = if radix == 2 {
+            leading_zeros
+        } else if b.is_empty() && leading_zeros != 0 {
             1
         } else {
             0
@@ -218,11 +226,6 @@ impl IntLiteral {
             let digit = table[ch as usize];
             if unlikely(digit as u32 >= radix) {
                 if ch == b'_' {
-                    if i == 0 || i == b.len() - 1 || b[i - 1] == b'_' {
-                        return Err(ParseError::IllegalUnderscore {
-                            offset: s.len() - b.len() + i,
-                        });
-                    }
                     continue;
                 }
                 // The invalid digit may be non-ASCII; decode it
@@ -513,12 +516,12 @@ mod tests {
             parse_test_ok!(Erlang, "+b#0", "0", [0 0]),
             parse_test_ok!(Erlang, "-b#0", "0", [1 0]),
             parse_test_ok!(Erlang, "42", "42", [0 1 0 1 0 1 0]),
-            parse_test_ok!(Erlang, "16#123", "291", [0 0 0 0 1 0 0 1 0 0 0 1 1]),
+            parse_test_ok!(Erlang, "16#123", "291", [0 1 0 0 1 0 0 0 1 1]),
             parse_test_ok!(Erlang, "16#dead_BEEF", "3735928559", [0 1 1 0 1 1 1 1 0 1 0 1 0 1 1 0 1 1 0 1 1 1 1 1 0 1 1 1 0 1 1 1 1]),
             parse_test_ok!(Erlang, "-60#100", "-3600", [1 1 1 1 0 0 0 0 1 0 0 0 0]),
-            parse_test_err!(Erlang, "3#_0", IllegalUnderscore { offset: 2 }),
-            parse_test_err!(Erlang, "21#0_", IllegalUnderscore { offset: 4 }),
-            parse_test_err!(Erlang, "42#9__2", IllegalUnderscore { offset: 5 }),
+            parse_test_ok!(Erlang, "3#_0", "0", [0 0]),
+            parse_test_ok!(Erlang, "-21#4_", "-4", [1 1 0 0]),
+            parse_test_ok!(Erlang, "42#7__K", "314", [0 1 0 0 1 1 1 0 1 0]),
             parse_test_err!(Erlang, "b", InvalidDigit { ch: 'b', offset: 0 }),
             parse_test_err!(Erlang, "B", InvalidDigit { ch: 'B', offset: 0 }),
             parse_test_err!(Erlang, "o", InvalidDigit { ch: 'o', offset: 0 }),
@@ -532,13 +535,21 @@ mod tests {
             parse_test_err!(Erlang, "0#", InvalidRadix),
             parse_test_err!(Erlang, "1#", InvalidRadix),
             parse_test_err!(Erlang, "63#", InvalidRadix),
+            parse_test_err!(Erlang, "_", LeadingUnderscore),
+            parse_test_err!(Erlang, "-_", LeadingUnderscore),
+            parse_test_err!(Erlang, "_1__2__3_", LeadingUnderscore),
             parse_test_ok!(C, "0", "0", [0 0]),
-            parse_test_ok!(C, "00", "00", [0 0 0 0]),
-            parse_test_ok!(C, "000", "000", [0 0 0 0 0 0 0]),
+            parse_test_ok!(C, "00", "00", [0 0]),
+            parse_test_ok!(C, "000", "000", [0 0]),
             parse_test_ok!(C, "0755", "493", [0 1 1 1 1 0 1 1 0 1]),
+            parse_test_ok!(C, "0_755", "493", [0 1 1 1 1 0 1 1 0 1]),
+            parse_test_ok!(C, "-0x_fe", "-254", [1 1 1 1 1 1 1 1 0]),
             parse_test_err!(C, "0b", NoDigits),
             parse_test_err!(C, "0x", NoDigits),
             parse_test_err!(C, "0a", InvalidDigit { ch: 'a', offset: 1 }),
+            parse_test_err!(C, "_", LeadingUnderscore),
+            parse_test_err!(C, "-_", LeadingUnderscore),
+            parse_test_err!(C, "_1__2__3_", LeadingUnderscore),
         ] {
             let result = match test.syntax {
                 SyntaxStyle::Erlang => IntLiteral::parse_erlang_style(test.string.into()),
