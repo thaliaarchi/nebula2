@@ -23,8 +23,8 @@
 //! big-endian systems are rare, `LsfLe`/`Lsb0` is the best option.
 //!
 //! Whitespace integers are big endian, but are parsed and pushed to a `BitVec`
-//! in little-endian order, so the populated bits (not the words) need to be
-//! reversed first.
+//! in little-endian order, so the slice of bits needs to be reversed (i.e., not
+//! reversing or swapping words) before converting to an `Integer`.
 //!
 //! GMP uses a machine word as the limb size and `bitvec` uses `usize` as the
 //! default `BitStore`.
@@ -75,6 +75,7 @@ pub enum Sign {
 pub enum ParseError {
     InvalidRadix,
     InvalidDigit { ch: char, offset: usize },
+    IllegalUnderscore { offset: usize },
     NoDigits,
 }
 
@@ -153,10 +154,12 @@ impl IntLiteral {
             [b'0', b'b' | b'B', ..] => (2, offset + 2),
             [b'0', b'o' | b'O', ..] => (8, offset + 2),
             [b'0', b'x' | b'X', ..] => (16, offset + 2),
-            [b'0', ..] => (8, offset + 1),
-            [] => return Err(ParseError::NoDigits),
+            [b'0', _, ..] => (8, offset + 1),
             _ => (10, offset),
         };
+        if offset == b.len() {
+            return Err(ParseError::NoDigits);
+        }
         Self::parse_digits(s, offset, sign, radix)
     }
 
@@ -187,14 +190,18 @@ impl IntLiteral {
         while let Some((ch, b1)) = b.split_first() {
             match ch {
                 b'0' => leading_zeros += 1,
-                b'_' if leading_zeros != 0 => {}
+                b'_' if leading_zeros != 0 => {} // TODO: Fix
                 _ => break,
             }
             b = b1;
         }
-        // Only use leading zeros for powers of two
-        let leading_zeros = if radix.is_power_of_two() && leading_zeros != 0 {
+        // Only use leading zeros for power-of-two radices and zero
+        let leading_zeros = if leading_zeros != 0 && radix.is_power_of_two() {
+            // TODO: Handle leading zeros in the binary representation of the
+            // first char
             leading_zeros * radix.log2() as usize
+        } else if leading_zeros != 0 && b.is_empty() {
+            1
         } else {
             0
         };
@@ -210,7 +217,12 @@ impl IntLiteral {
         for (i, &ch) in b.iter().enumerate() {
             let digit = table[ch as usize];
             if unlikely(digit as u32 >= radix) {
-                if ch == b'_' && i != 0 && b[i - 1] != b'_' {
+                if ch == b'_' {
+                    if i == 0 || i == b.len() - 1 || b[i - 1] == b'_' {
+                        return Err(ParseError::IllegalUnderscore {
+                            offset: s.len() - b.len() + i,
+                        });
+                    }
                     continue;
                 }
                 // The invalid digit may be non-ASCII; decode it
@@ -256,9 +268,6 @@ impl IntLiteral {
                 radix as i32,
             );
             (*raw).size = if sign == Sign::Neg { -size } else { size } as i32;
-        }
-        if sign == Sign::Neg {
-            int.neg_assign();
         }
         int
     }
@@ -448,6 +457,98 @@ impl ToInteger for BitSlice {
             Some(true) => Sign::Neg,
             Some(false) => Sign::Pos,
             None => Sign::Empty,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct ParseTest {
+        syntax: SyntaxStyle,
+        string: &'static str,
+        result: Result<IntLiteral, ParseError>,
+    }
+    #[derive(Debug)]
+    enum SyntaxStyle {
+        Erlang,
+        C,
+    }
+
+    macro_rules! parse_test_ok(
+        ($syntax:ident, $s:literal, $int:literal, [$($bit:literal)*]) => {
+            ParseTest {
+                syntax: SyntaxStyle::$syntax,
+                string: $s,
+                result: Ok(IntLiteral {
+                    bits: bitvec![$($bit),*],
+                    string: Some($s.into()),
+                    int: Integer::parse($int).unwrap().into(),
+                }),
+            }
+        }
+    );
+    macro_rules! parse_test_err(
+        ($syntax:ident, $s:literal, $err:expr) => {
+            ParseTest {
+                syntax: SyntaxStyle::$syntax,
+                string: $s.into(),
+                result: Err($err),
+            }
+        }
+    );
+
+    #[test]
+    fn parse() {
+        use ParseError::*;
+        for test in [
+            parse_test_ok!(Erlang, "0", "0", [0 0]),
+            parse_test_ok!(Erlang, "00", "00", [0 0]),
+            parse_test_ok!(Erlang, "000", "000", [0 0]),
+            parse_test_ok!(Erlang, "b#", "0", []),
+            parse_test_ok!(Erlang, "+b#", "0", [0]),
+            parse_test_ok!(Erlang, "-b#", "0", [1]),
+            parse_test_ok!(Erlang, "b#0", "0", [0 0]),
+            parse_test_ok!(Erlang, "+b#0", "0", [0 0]),
+            parse_test_ok!(Erlang, "-b#0", "0", [1 0]),
+            parse_test_ok!(Erlang, "42", "42", [0 1 0 1 0 1 0]),
+            parse_test_ok!(Erlang, "16#123", "291", [0 0 0 0 1 0 0 1 0 0 0 1 1]),
+            parse_test_ok!(Erlang, "16#dead_BEEF", "3735928559", [0 1 1 0 1 1 1 1 0 1 0 1 0 1 1 0 1 1 0 1 1 1 1 1 0 1 1 1 0 1 1 1 1]),
+            parse_test_ok!(Erlang, "-60#100", "-3600", [1 1 1 1 0 0 0 0 1 0 0 0 0]),
+            parse_test_err!(Erlang, "3#_0", IllegalUnderscore { offset: 2 }),
+            parse_test_err!(Erlang, "21#0_", IllegalUnderscore { offset: 4 }),
+            parse_test_err!(Erlang, "42#9__2", IllegalUnderscore { offset: 5 }),
+            parse_test_err!(Erlang, "b", InvalidDigit { ch: 'b', offset: 0 }),
+            parse_test_err!(Erlang, "B", InvalidDigit { ch: 'B', offset: 0 }),
+            parse_test_err!(Erlang, "o", InvalidDigit { ch: 'o', offset: 0 }),
+            parse_test_err!(Erlang, "O", InvalidDigit { ch: 'O', offset: 0 }),
+            parse_test_err!(Erlang, "x", InvalidDigit { ch: 'x', offset: 0 }),
+            parse_test_err!(Erlang, "X", InvalidDigit { ch: 'X', offset: 0 }),
+            parse_test_err!(Erlang, "#", InvalidRadix),
+            parse_test_err!(Erlang, "a#", InvalidRadix),
+            parse_test_err!(Erlang, "ab#", InvalidRadix),
+            parse_test_err!(Erlang, "abc#", InvalidDigit { ch: 'a', offset: 0 }),
+            parse_test_err!(Erlang, "0#", InvalidRadix),
+            parse_test_err!(Erlang, "1#", InvalidRadix),
+            parse_test_err!(Erlang, "63#", InvalidRadix),
+            parse_test_ok!(C, "0", "0", [0 0]),
+            parse_test_ok!(C, "00", "00", [0 0 0 0]),
+            parse_test_ok!(C, "000", "000", [0 0 0 0 0 0 0]),
+            parse_test_ok!(C, "0755", "493", [0 1 1 1 1 0 1 1 0 1]),
+            parse_test_err!(C, "0b", NoDigits),
+            parse_test_err!(C, "0x", NoDigits),
+            parse_test_err!(C, "0a", InvalidDigit { ch: 'a', offset: 1 }),
+        ] {
+            let result = match test.syntax {
+                SyntaxStyle::Erlang => IntLiteral::parse_erlang_style(test.string.into()),
+                SyntaxStyle::C => IntLiteral::parse_c_style(test.string.into()),
+            };
+            assert_eq!(
+                test.result, result,
+                "parse {} with {:?} syntax",
+                test.string, test.syntax,
+            );
         }
     }
 }
