@@ -16,7 +16,7 @@ use smallvec::SmallVec;
 use static_assertions::assert_eq_size;
 
 use crate::ws::inst::{Inst, InstArg, InstError, Opcode, RawInst};
-use crate::ws::int::{IntLiteral, ToInteger};
+use crate::ws::syntax::{IntLiteral, ToInteger};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Program {

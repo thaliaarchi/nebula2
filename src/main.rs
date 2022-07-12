@@ -15,8 +15,8 @@ use std::path::PathBuf;
 use clap::{Args, Parser as CliParser, Subcommand};
 use nebula2::ws::{
     inst::{Feature, Features, Inst, InstArg, InstError},
-    int::IntLiteral,
     parse::{ParseTable, Parser},
+    syntax::IntLiteral,
     token::{BitLexer, Lexer, Mapping, MappingLexer},
 };
 
