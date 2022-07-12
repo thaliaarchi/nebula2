@@ -6,6 +6,13 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
+use std::fmt::{self, Display, Formatter};
+use std::fs;
+use std::io;
+use std::num::{NonZeroU16, NonZeroU32};
+use std::ops::Index;
+use std::path::{Path, PathBuf};
+
 /// Position is an arbitrary source position, including the line and column
 /// numbers, byte offset, and file index.
 ///
@@ -71,7 +78,80 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Position {
     pub offset: u32,
-    pub line: u32,
-    pub col: u16,
-    pub file: u16,
+    pub line: NonZeroU32,
+    pub col: NonZeroU16,
+    pub file: FileId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileSet {
+    files: Vec<File>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct File {
+    path: PathBuf,
+    src: Vec<u8>,
+}
+
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FileId(pub u16);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FilePosition<'a> {
+    file: &'a File,
+    pos: Position,
+}
+
+impl FileSet {
+    #[inline]
+    pub fn add(&mut self, file: File) -> FileId {
+        let id = FileId(self.files.len().try_into().expect("file id overflow"));
+        self.files.push(file);
+        id
+    }
+
+    #[inline]
+    pub fn add_from_path(&mut self, path: PathBuf) -> io::Result<FileId> {
+        let src = fs::read(&path)?;
+        Ok(self.add(File::new(path, src)))
+    }
+
+    #[inline]
+    pub fn position(&self, pos: Position) -> FilePosition<'_> {
+        FilePosition { file: &self[pos.file], pos }
+    }
+}
+
+impl Index<FileId> for FileSet {
+    type Output = File;
+
+    #[inline]
+    fn index(&self, id: FileId) -> &Self::Output {
+        &self.files[id.0 as usize]
+    }
+}
+
+impl File {
+    #[inline]
+    pub const fn new(path: PathBuf, src: Vec<u8>) -> Self {
+        File { path, src }
+    }
+
+    #[inline]
+    pub fn src(&self) -> &[u8] {
+        self.src.as_slice()
+    }
+
+    #[inline]
+    pub fn path(&self) -> &Path {
+        self.path.as_path()
+    }
+}
+
+impl<'a> Display for FilePosition<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}:{}:{}", self.file.path, self.pos.line, self.pos.col)
+    }
 }
