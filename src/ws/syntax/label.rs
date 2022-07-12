@@ -16,7 +16,7 @@ use smallvec::SmallVec;
 use static_assertions::assert_eq_size;
 
 use crate::ws::inst::{Inst, InstArg, InstError, Opcode, RawInst};
-use crate::ws::syntax::{IntLiteral, ToInteger};
+use crate::ws::syntax::{convert, IntLiteral};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Program {
@@ -81,30 +81,9 @@ pub struct LabelData {
     uses: SmallVec<[InstId; 4]>,
 }
 
-/// The resolution strategy for duplicate labels.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum LabelDupes {
-    /// Duplicate labels are not allowed
-    Unique,
-    /// The first definition is used (wspace)
-    First,
-    /// The last definition is used
-    Last,
-}
-
-/// The ordering to use for assigning label ids when serializing.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum LabelOrder {
-    /// In order of definition
-    #[default]
-    Def,
-    /// In order of first definition or use
-    DefOrUse,
-}
-
 impl LabelData {
     pub fn new(id: LabelId, bits: BitVec) -> Self {
-        let uint = bits.to_uint_unambiguous();
+        let uint = convert::integer_from_unsigned_bits_unambiguous(&bits);
         LabelData {
             id,
             bits,
@@ -139,6 +118,27 @@ impl LabelData {
 pub struct LabelResolver {
     labels: Vec<LabelData>,
     bits_map: HashMap<BitVec, LabelId>,
+}
+
+/// The ordering to use for assigning label ids when serializing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum LabelOrder {
+    /// In order of definition
+    #[default]
+    Def,
+    /// In order of first definition or use
+    DefOrUse,
+}
+
+/// The resolution strategy for duplicate labels.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum LabelDupes {
+    /// Duplicate labels are not allowed
+    Unique,
+    /// The first definition is used (wspace)
+    First,
+    /// The last definition is used
+    Last,
 }
 
 impl LabelResolver {

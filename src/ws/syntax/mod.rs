@@ -9,5 +9,6 @@
 pub use int::*;
 pub use label::*;
 
+pub(crate) mod convert;
 mod int;
 mod label;
