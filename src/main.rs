@@ -18,7 +18,7 @@ use nebula2::ws::{
     inst::{Feature, Features, Inst, InstArg, InstError},
     parse::{ParseTable, Parser},
     syntax::IntLiteral,
-    token::{bit_unpack_bytes, Lexer, Mapping, MappingLexer},
+    token::{bit_unpack_aligned, Lexer, Mapping, MappingLexer},
 };
 
 #[derive(Debug, CliParser)]
@@ -61,7 +61,7 @@ macro_rules! get_parser(
         let src = fs::read(&$program.filename).unwrap();
         let ext = $program.filename.extension().map(OsStr::to_str).flatten();
         let lex: Box<dyn Lexer> = match ext {
-            Some("wsx") => box bit_unpack_bytes::<Msb0>(&src).into_iter().map(Ok),
+            Some("wsx") => box bit_unpack_aligned::<u8, Msb0>(&src).into_iter().map(Ok),
             _ if $program.ascii => box MappingLexer::new_bytes(&src, Mapping::default()),
             _ => box MappingLexer::new_utf8(&src, Mapping::default(), true),
         };

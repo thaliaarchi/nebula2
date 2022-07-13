@@ -12,7 +12,7 @@ use crate::text::EncodingError;
 use crate::ws::inst::{Inst, RawInst};
 use crate::ws::parse::{ParseTable, Parser};
 use crate::ws::token::{
-    bit_pack_bytes, bit_unpack_bytes, Lexer, Mapping, MappingLexer, Token, Token::*,
+    bit_pack_aligned, bit_unpack_aligned, Lexer, Mapping, MappingLexer, Token, Token::*,
 };
 
 const TUTORIAL_STL: &[u8] = br"
@@ -86,14 +86,14 @@ fn byte_lex() -> Result<(), EncodingError> {
 
 #[test]
 fn bit_pack() -> Result<(), EncodingError> {
-    let bits = bit_pack_bytes::<Msb0>(TUTORIAL_TOKENS);
+    let bits = bit_pack_aligned::<u8, Msb0>(TUTORIAL_TOKENS);
     assert_eq!(TUTORIAL_BITS, bits);
     Ok(())
 }
 
 #[test]
 fn bit_unpack() -> Result<(), EncodingError> {
-    let toks = bit_unpack_bytes::<Msb0>(TUTORIAL_BITS);
+    let toks = bit_unpack_aligned::<u8, Msb0>(TUTORIAL_BITS);
     assert_eq!(TUTORIAL_TOKENS, toks);
     Ok(())
 }
@@ -112,7 +112,9 @@ fn parse_dyn() {
     let lexers: [Box<dyn Lexer>; 3] = [
         box MappingLexer::new_utf8(TUTORIAL_STL, Mapping::<char>::STL, true),
         box MappingLexer::new_bytes(TUTORIAL_STL, Mapping::<u8>::STL),
-        box bit_unpack_bytes::<Msb0>(TUTORIAL_BITS).into_iter().map(Ok),
+        box bit_unpack_aligned::<u8, Msb0>(TUTORIAL_BITS)
+            .into_iter()
+            .map(Ok),
     ];
     let table = ParseTable::with_all();
     for lex in lexers {

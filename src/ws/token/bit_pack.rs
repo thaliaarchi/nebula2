@@ -35,7 +35,7 @@ use crate::ws::token::Token;
 
 /// Packs tokens into a compact bitwise representation. The length of the
 /// returned BitVec may not be at a byte boundary.
-pub fn bit_pack<S: BitStore, O: BitOrder>(toks: &[Token]) -> BitVec<S, O> {
+pub fn bit_pack<T: BitStore, O: BitOrder>(toks: &[Token]) -> BitVec<T, O> {
     // TODO: Survey programs to find better size ratio estimate.
     let mut bits = BitVec::with_capacity(toks.len() * 2);
     for &tok in toks {
@@ -56,7 +56,7 @@ pub fn bit_pack<S: BitStore, O: BitOrder>(toks: &[Token]) -> BitVec<S, O> {
 
 /// Unpacks tokens from a compact bitwise representation. If the last bit is an
 /// unpaired 1 bit, it is ignored.
-pub fn bit_unpack<S: BitStore, O: BitOrder>(bits: &BitSlice<S, O>) -> Vec<Token> {
+pub fn bit_unpack<T: BitStore, O: BitOrder>(bits: &BitSlice<T, O>) -> Vec<Token> {
     // TODO: Survey programs to find better size ratio estimate.
     // TODO: Use TokenVec here, once it can extend its capacity.
     let mut toks = Vec::with_capacity(bits.len());
@@ -78,8 +78,8 @@ pub fn bit_unpack<S: BitStore, O: BitOrder>(bits: &BitSlice<S, O>) -> Vec<Token>
 /// Packs tokens into a compact bitwise representation. If the last token is an
 /// S or T, a marker 1 bit is appended to avoid ambiguity between a zero in the
 /// encodings of S and T and unset trailing zeros.
-pub fn bit_pack_bytes<O: BitOrder>(toks: &[Token]) -> Vec<u8> {
-    let mut bits = bit_pack::<u8, O>(toks);
+pub fn bit_pack_aligned<T: BitStore, O: BitOrder>(toks: &[Token]) -> Vec<T> {
+    let mut bits = bit_pack::<T, O>(toks);
     // In the last byte, any trailing zeros would be treated as S, so to avoid
     // this, a marker 1 bit is appended.
     if bits.last().as_deref() == Some(&false) {
@@ -90,8 +90,8 @@ pub fn bit_pack_bytes<O: BitOrder>(toks: &[Token]) -> Vec<u8> {
 }
 
 /// Unpacks tokens from a compact bitwise representation.
-pub fn bit_unpack_bytes<O: BitOrder>(bits: &[u8]) -> Vec<Token> {
-    let mut bits = BitSlice::<u8, O>::from_slice(bits);
+pub fn bit_unpack_aligned<T: BitStore, O: BitOrder>(bits: &[T]) -> Vec<Token> {
+    let mut bits = BitSlice::<T, O>::from_slice(bits);
     // Trim trailing zeros in the last byte.
     let tz = bits.trailing_zeros();
     if 0 < tz && tz <= 8 {
@@ -114,8 +114,8 @@ pub enum BitOrderDynamic {
 /// runtime.
 pub fn bit_pack_dynamic(toks: &[Token], order: BitOrderDynamic) -> Vec<u8> {
     match order {
-        BitOrderDynamic::Lsb0 => bit_pack_bytes::<Lsb0>(toks),
-        BitOrderDynamic::Msb0 => bit_pack_bytes::<Msb0>(toks),
+        BitOrderDynamic::Lsb0 => bit_pack_aligned::<u8, Lsb0>(toks),
+        BitOrderDynamic::Msb0 => bit_pack_aligned::<u8, Msb0>(toks),
     }
 }
 
@@ -124,7 +124,7 @@ pub fn bit_pack_dynamic(toks: &[Token], order: BitOrderDynamic) -> Vec<u8> {
 /// runtime.
 pub fn bit_unpack_dynamic(bits: &[u8], order: BitOrderDynamic) -> Vec<Token> {
     match order {
-        BitOrderDynamic::Lsb0 => bit_unpack_bytes::<Lsb0>(bits),
-        BitOrderDynamic::Msb0 => bit_unpack_bytes::<Msb0>(bits),
+        BitOrderDynamic::Lsb0 => bit_unpack_aligned::<u8, Lsb0>(bits),
+        BitOrderDynamic::Msb0 => bit_unpack_aligned::<u8, Msb0>(bits),
     }
 }
