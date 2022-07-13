@@ -6,63 +6,44 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
-use std::iter::FusedIterator;
+//! `pack_bits`/`unpack_bits` is a continuation of my tradition of including bit
+//! packing in each of my major Whitespace implementations, following
+//! [Respace](https://github.com/andrewarchi/respace/blob/master/src/binary.h),
+//! [Nebula](https://github.com/andrewarchi/nebula/blob/master/ws/pack.go), and
+//! [yspace](https://github.com/andrewarchi/yspace/blob/main/src/bit_pack.rs).
+//! Unlike the others, which were `Msb0`, this has configurable bit order. As
+//! far as I can tell, Respace was the first implementation of this algorithm
+//! and had been discovered independently, though it had been mentioned
+//! theoretically [in 2012](https://github.com/wspace/corpus/tree/main/python/res-trans32).
 
-use crate::text::EncodingError;
-use crate::ws::token::Token::{self, *};
+use bitvec::{order::BitOrder, slice::BitSlice};
 
-#[derive(Clone, Debug)]
-pub struct BitLexer<'a> {
-    src: &'a [u8],
-    byte_offset: usize,
-    bit_offset: u8,
-}
+use crate::ws::token::Token;
 
-impl<'a> BitLexer<'a> {
-    #[inline]
-    pub const fn new<B: ~const AsRef<[u8]> + ?Sized>(src: &'a B) -> Self {
-        BitLexer {
-            src: src.as_ref(),
-            byte_offset: 0,
-            bit_offset: 7,
-        }
+pub fn unpack_bits<O: BitOrder>(packed: &[u8]) -> Vec<Token> {
+    let mut bits = BitSlice::<_, O>::from_slice(packed);
+    // In the last byte, any trailing zeros would be treated as S, so to avoid
+    // this, a marker 1 bit is appended, when the bits do not fit at a byte
+    // boundary.
+    let tz = bits.trailing_zeros();
+    if 0 < tz && tz <= 8 {
+        bits = &bits[..bits.len() - tz];
     }
+    // TODO: Survey programs to find better size ratio estimate.
+    // TODO: Use TokenVec here, once it can extend its capacity.
+    let mut toks = Vec::with_capacity(bits.len());
 
-    #[inline]
-    fn next_bit(&mut self) -> Option<bool> {
-        if self.byte_offset >= self.src.len() {
-            return None;
-        }
-        let byte = self.src[self.byte_offset];
-        // Ignore trailing zeros on the last byte
-        if self.byte_offset + 1 == self.src.len() && byte << (7 - self.bit_offset) == 0 {
-            return None;
-        }
-        let bit = byte & (1 << self.bit_offset) != 0;
-        if self.bit_offset == 0 {
-            self.bit_offset = 7;
-            self.byte_offset += 1;
-        } else {
-            self.bit_offset -= 1;
-        }
-        Some(bit)
-    }
-}
-
-impl<'a> Iterator for BitLexer<'a> {
-    type Item = Result<Token, EncodingError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.next_bit() {
-            Some(true) => match self.next_bit() {
-                Some(true) => Some(Ok(L)),
-                Some(false) => Some(Ok(T)),
-                None => None, // Marker bit
+    let mut bits = bits.into_iter();
+    loop {
+        toks.push(match bits.next().as_deref() {
+            Some(true) => match bits.next().as_deref() {
+                Some(true) => Token::L,
+                Some(false) => Token::T,
+                None => break, // Marker bit
             },
-            Some(false) => Some(Ok(S)),
-            None => None,
-        }
+            Some(false) => Token::S,
+            None => break, // EOF
+        });
     }
+    toks
 }
-
-impl<'a> const FusedIterator for BitLexer<'a> {}

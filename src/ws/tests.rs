@@ -11,7 +11,7 @@ use bitvec::prelude::*;
 use crate::text::EncodingError;
 use crate::ws::inst::{Inst, RawInst};
 use crate::ws::parse::{ParseTable, Parser};
-use crate::ws::token::{BitLexer, Lexer, Mapping, MappingLexer, Token, Token::*};
+use crate::ws::token::{unpack_bits, Lexer, Mapping, MappingLexer, Token, Token::*};
 
 const TUTORIAL_STL: &[u8] = br"
 S S S T L                    push 1
@@ -84,8 +84,7 @@ fn byte_lex() -> Result<(), EncodingError> {
 
 #[test]
 fn bit_lex() -> Result<(), EncodingError> {
-    let lex = BitLexer::new(TUTORIAL_BITS);
-    let toks = lex.collect::<Result<Vec<_>, EncodingError>>()?;
+    let toks = unpack_bits::<Msb0>(TUTORIAL_BITS);
     assert_eq!(TUTORIAL_TOKENS, toks);
     Ok(())
 }
@@ -104,7 +103,9 @@ fn parse_dyn() {
     let lexers: [Box<dyn Lexer>; 3] = [
         box MappingLexer::new_utf8(TUTORIAL_STL, Mapping::<char>::STL, true),
         box MappingLexer::new_bytes(TUTORIAL_STL, Mapping::<u8>::STL),
-        box BitLexer::new(TUTORIAL_BITS),
+        box unpack_bits::<Msb0>(TUTORIAL_BITS)
+            .into_iter()
+            .map(|tok| Ok(tok)),
     ];
     let table = ParseTable::with_all();
     for lex in lexers {

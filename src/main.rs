@@ -12,12 +12,13 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
 
+use bitvec::order::Msb0;
 use clap::{Args, Parser as CliParser, Subcommand};
 use nebula2::ws::{
     inst::{Feature, Features, Inst, InstArg, InstError},
     parse::{ParseTable, Parser},
     syntax::IntLiteral,
-    token::{BitLexer, Lexer, Mapping, MappingLexer},
+    token::{unpack_bits, Lexer, Mapping, MappingLexer},
 };
 
 #[derive(Debug, CliParser)]
@@ -60,7 +61,9 @@ macro_rules! get_parser(
         let src = fs::read(&$program.filename).unwrap();
         let ext = $program.filename.extension().map(OsStr::to_str).flatten();
         let lex: Box<dyn Lexer> = match ext {
-            Some("wsx") => box BitLexer::new(&src),
+            Some("wsx") => box unpack_bits::<Msb0>(&src)
+                .into_iter()
+                .map(|tok| Ok(tok)),
             _ if $program.ascii => box MappingLexer::new_bytes(&src, Mapping::default()),
             _ => box MappingLexer::new_utf8(&src, Mapping::default(), true),
         };
