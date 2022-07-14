@@ -7,6 +7,7 @@
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
 use std::collections::{hash_map::Entry, HashMap};
+use std::fmt::{self, Display, Formatter};
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::ops::{Index, IndexMut};
 
@@ -68,6 +69,33 @@ id_index!(InstId(u32) indexes ProgramInst in Vec<ProgramInst>, [ProgramInst]);
 id_index!(LabelId(u32) indexes LabelData in Vec<LabelData>, [LabelData]);
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct LabelLiteral {
+    bits: BitVec,
+    uint: Option<Integer>,
+    name: Option<String>,
+}
+
+impl LabelLiteral {
+    #[inline]
+    pub fn from_bits(bits: BitVec) -> Self {
+        let uint = convert::integer_from_unsigned_bits_unambiguous(&bits);
+        LabelLiteral { bits, uint, name: None }
+    }
+}
+
+impl Display for LabelLiteral {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if let Some(name) = self.name.as_ref() {
+            write!(f, "{}", name)
+        } else if let Some(uint) = self.uint.as_ref() {
+            write!(f, "{}", uint)
+        } else {
+            write!(f, "{}", self.bits)
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct LabelData {
     id: LabelId,
     /// Canonical bit representation.
@@ -82,6 +110,7 @@ pub struct LabelData {
 }
 
 impl LabelData {
+    #[inline]
     pub fn new(id: LabelId, bits: BitVec) -> Self {
         let uint = convert::integer_from_unsigned_bits_unambiguous(&bits);
         LabelData {

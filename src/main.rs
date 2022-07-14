@@ -17,7 +17,7 @@ use clap::{Args, Parser as CliParser, Subcommand};
 use nebula2::ws::{
     inst::{Feature, Features, Inst, InstArg, InstError},
     parse::{ParseTable, Parser},
-    syntax::IntLiteral,
+    syntax::{IntLiteral, LabelLiteral},
     token::{bit_unpack_aligned, Lexer, Mapping, MappingLexer},
 };
 
@@ -79,7 +79,7 @@ fn disassemble(program: ProgramOptions) {
             let inst = inst.map_arg(|_, arg| -> Result<_, InstError> {
                 match arg {
                     InstArg::Int(n) => Ok(InstArg::Int(IntLiteral::from(n))),
-                    InstArg::Label(l) => Ok(InstArg::Label(IntLiteral::from(l))), // TODO
+                    InstArg::Label(l) => Ok(InstArg::Label(LabelLiteral::from_bits(l))),
                 }
             });
             println!("{inst}");
