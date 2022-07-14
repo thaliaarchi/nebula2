@@ -12,13 +12,12 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
 
-use bitvec::order::Msb0;
 use clap::{Args, Parser as CliParser, Subcommand};
 use nebula2::ws::{
     inst::{Feature, Features, Inst, InstArg, InstError},
     parse::{ParseTable, Parser},
     syntax::{IntLiteral, LabelLiteral},
-    token::{bit_unpack_aligned, Lexer, Mapping, MappingLexer},
+    token::{bit_unpack_dynamic, BitOrderDynamic, Lexer, Mapping, MappingLexer},
 };
 
 #[derive(Debug, CliParser)]
@@ -45,6 +44,9 @@ struct ProgramOptions {
     /// Disable UTF-8 validation
     #[clap(long, value_parser, default_value_t = false)]
     ascii: bool,
+    /// Set the bit order for bit packing
+    #[clap(long, value_parser, default_value_t = BitOrderDynamic::Msb0)]
+    bit_order: BitOrderDynamic,
 }
 
 fn main() {
@@ -61,7 +63,7 @@ macro_rules! get_parser(
         let src = fs::read(&$program.filename).unwrap();
         let ext = $program.filename.extension().map(OsStr::to_str).flatten();
         let lex: Box<dyn Lexer> = match ext {
-            Some("wsx") => box bit_unpack_aligned::<u8, Msb0>(&src).into_iter().map(Ok),
+            Some("wsx") => box bit_unpack_dynamic(&src, $program.bit_order).into_iter().map(Ok),
             _ if $program.ascii => box MappingLexer::new_bytes(&src, Mapping::default()),
             _ => box MappingLexer::new_utf8(&src, Mapping::default(), true),
         };

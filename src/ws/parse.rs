@@ -118,7 +118,7 @@ pub struct ParseTable {
 }
 
 #[derive(Clone, Debug)]
-pub enum ParseEntry {
+enum ParseEntry {
     Terminal(Opcode),
     Prefix(OpcodeVec),
 }
