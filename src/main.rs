@@ -17,7 +17,7 @@ use nebula2::ws::{
     inst::{Feature, Features, Inst, InstArg, InstError},
     parse::{ParseTable, Parser},
     syntax::{IntLiteral, LabelLiteral},
-    token::{bit_unpack_dynamic, BitOrderDynamic, Lexer, Mapping, MappingLexer},
+    token::{bit_unpack_dynamic, lex_mapping, BitOrderDynamic, Lexer, Mapping, MappingLexer},
 };
 
 #[derive(Debug, CliParser)]
@@ -47,6 +47,15 @@ struct ProgramOptions {
     /// Set the bit order for bit packing
     #[clap(long, value_parser, default_value_t = BitOrderDynamic::Msb0)]
     bit_order: BitOrderDynamic,
+    /// Set the mapping for S
+    #[clap(long, value_parser)]
+    mapping_s: Option<String>,
+    /// Set the mapping for T
+    #[clap(long, value_parser)]
+    mapping_t: Option<String>,
+    /// Set the mapping for L
+    #[clap(long, value_parser)]
+    mapping_l: Option<String>,
 }
 
 fn main() {
@@ -62,10 +71,21 @@ macro_rules! get_parser(
     ($parser:ident, $program:ident) => {
         let src = fs::read(&$program.filename).unwrap();
         let ext = $program.filename.extension().map(OsStr::to_str).flatten();
-        let lex: Box<dyn Lexer> = match ext {
-            Some("wsx") => box bit_unpack_dynamic(&src, $program.bit_order).into_iter().map(Ok),
-            _ if $program.ascii => box MappingLexer::new_bytes(&src, Mapping::default()),
-            _ => box MappingLexer::new_utf8(&src, Mapping::default(), true),
+        let lex: Box<dyn Lexer> = if ext == Some("wsx") {
+            box bit_unpack_dynamic(&src, $program.bit_order).into_iter().map(Ok)
+        } else if $program.mapping_s != None || $program.mapping_t != None || $program.mapping_l != None {
+            lex_mapping(
+                &src,
+                $program.mapping_s.expect("empty S").into(),
+                $program.mapping_t.expect("empty T").into(),
+                $program.mapping_l.expect("empty L").into(),
+                $program.ascii,
+                true,
+            ).expect("invalid mapping")
+        } else if $program.ascii {
+            box MappingLexer::new_bytes(&src, Mapping::default())
+        } else {
+            box MappingLexer::new_utf8(&src, Mapping::default(), true)
         };
         let table = ParseTable::with_all();
         let $parser = Parser::new(&table, lex);
