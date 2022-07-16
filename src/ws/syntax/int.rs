@@ -173,21 +173,6 @@ impl IntLiteral {
             }
             offset += 1;
         }
-        // Only use leading zeros for base 2 and zero
-        let leading_zeros = if radix == 2 {
-            leading_zeros
-        } else if offset == b.len() && leading_zeros != 0 {
-            1
-        } else {
-            0
-        };
-        if offset == b.len() {
-            return Ok(IntLiteral {
-                bits: convert::signed_bits_from_zero(sign, leading_zeros),
-                string: Some(unsafe { str::from_utf8_unchecked(b) }.into()),
-                int: Integer::new(),
-            });
-        }
 
         let mut digits = Vec::with_capacity(b.len() - offset);
         for i in offset..b.len() {
@@ -204,10 +189,19 @@ impl IntLiteral {
             digits.push(digit);
         }
 
+        // Only use leading zeros for base 2 and zero
+        let leading_zeros = if radix == 2 {
+            leading_zeros
+        } else if digits.is_empty() && leading_zeros != 0 {
+            1
+        } else {
+            0
+        };
         let int = convert::integer_from_digits_radix(digits, sign, radix);
         let bits = convert::signed_bits_from_integer(&int, sign, leading_zeros);
+        // SAFETY: The syntax only allows for ASCII characters
         let string = Some(unsafe { str::from_utf8_unchecked(b) }.into());
-        Ok(IntLiteral { bits, int, string })
+        Ok(IntLiteral { bits, string, int })
     }
 
     #[inline]

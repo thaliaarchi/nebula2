@@ -39,6 +39,8 @@
 //! | MsfBe | Msb0      | most-significant bit first  | big-endian      |
 //! |       | LocalBits | alias to Lsb0 or Msb0       | host endianness |
 
+use std::cmp::Ordering;
+
 use bitvec::prelude::*;
 use gmp_mpfr_sys::gmp;
 use rug::{integer::Order, ops::NegAssign, Integer};
@@ -55,6 +57,9 @@ use crate::ws::syntax::Sign;
 /// Compensates for Rug missing a higher-level API for using `mpn_set_str`:
 /// https://gitlab.com/tspiteri/rug/-/issues/41
 pub fn integer_from_digits_radix(digits: Vec<u8>, sign: Sign, radix: u32) -> Integer {
+    if digits.len() == 0 {
+        return Integer::ZERO;
+    }
     let mut int = Integer::new();
     let raw = int.as_raw_mut();
 
@@ -125,28 +130,29 @@ pub fn unsigned_bits_from_integer(int: &Integer) -> BitVec {
 }
 
 pub fn signed_bits_from_integer(int: &Integer, sign: Sign, leading_zeros: usize) -> BitVec {
-    let mut bits = unsigned_bits_from_integer(int);
-    let len = bits.len();
-    // Newly-reserved bits are guaranteed to be allocated to zero
-    bits.reserve(leading_zeros + 1);
-    unsafe { bits.set_len(len + leading_zeros + 1) };
-    // Panics when shifting by the length
-    if len != 0 {
-        bits.shift_right(leading_zeros + 1);
-    }
-    if sign == Sign::Neg {
-        bits.set(0, true);
-    }
-    bits
-}
-
-pub fn signed_bits_from_zero(sign: Sign, n_zeros: usize) -> BitVec {
-    if n_zeros == 0 && sign == Sign::Empty {
-        return BitVec::new();
-    }
-    let mut bits = BitVec::repeat(false, n_zeros + 1);
-    if sign == Sign::Neg {
-        bits.set(0, true);
+    let mut bits;
+    if int.cmp0() == Ordering::Equal {
+        if leading_zeros == 0 && sign == Sign::Empty {
+            bits = BitVec::new();
+        } else {
+            bits = BitVec::repeat(false, leading_zeros + 1);
+            if sign == Sign::Neg {
+                bits.set(0, true);
+            }
+        }
+    } else {
+        bits = unsigned_bits_from_integer(int);
+        let len = bits.len();
+        // Newly-reserved bits are guaranteed to be allocated to zero
+        bits.reserve(leading_zeros + 1);
+        unsafe { bits.set_len(len + leading_zeros + 1) };
+        // Panics when shifting by the length
+        if len != 0 {
+            bits.shift_right(leading_zeros + 1);
+        }
+        if sign == Sign::Neg {
+            bits.set(0, true);
+        }
     }
     bits
 }
