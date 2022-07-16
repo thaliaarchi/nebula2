@@ -151,9 +151,9 @@ impl IntLiteral {
         }
     }
 
-    fn parse_digits<B: AsRef<[u8]>>(
-        b: B,
-        offset: usize,
+    fn parse_digits(
+        b: &[u8],
+        mut offset: usize,
         sign: Sign,
         radix: u32,
     ) -> Result<Self, ParseError> {
@@ -164,52 +164,49 @@ impl IntLiteral {
         };
 
         // Skip leading zeros
-        let s = b.as_ref();
-        let mut b = &s[offset..];
         let mut leading_zeros = 0usize;
-        while let Some((ch, b1)) = b.split_first() {
-            match ch {
+        while offset < b.len() {
+            match b[offset] {
                 b'0' => leading_zeros += 1,
                 b'_' => {}
                 _ => break,
             }
-            b = b1;
+            offset += 1;
         }
         // Only use leading zeros for base 2 and zero
         let leading_zeros = if radix == 2 {
             leading_zeros
-        } else if b.is_empty() && leading_zeros != 0 {
+        } else if offset == b.len() && leading_zeros != 0 {
             1
         } else {
             0
         };
-        if b.is_empty() {
+        if offset == b.len() {
             return Ok(IntLiteral {
                 bits: convert::signed_bits_from_zero(sign, leading_zeros),
-                string: Some(unsafe { str::from_utf8_unchecked(s) }.into()),
+                string: Some(unsafe { str::from_utf8_unchecked(b) }.into()),
                 int: Integer::new(),
             });
         }
 
-        let mut digits = Vec::with_capacity(b.len());
-        for (i, &ch) in b.iter().enumerate() {
+        let mut digits = Vec::with_capacity(b.len() - offset);
+        for i in offset..b.len() {
+            let ch = b[i];
             let digit = table[ch as usize];
             if unlikely(digit as u32 >= radix) {
                 if ch == b'_' {
                     continue;
                 }
                 // The invalid digit may be non-ASCII; decode it
-                return Err(ParseError::InvalidDigit {
-                    ch: bstr::decode_utf8(&b[i..]).0.unwrap_or('\u{FFFD}'),
-                    offset: s.len() - b.len() + i,
-                });
+                let ch = bstr::decode_utf8(&b[i..]).0.unwrap_or('\u{FFFD}');
+                return Err(ParseError::InvalidDigit { ch, offset: i });
             }
             digits.push(digit);
         }
 
         let int = convert::integer_from_digits_radix(digits, sign, radix);
         let bits = convert::signed_bits_from_integer(&int, sign, leading_zeros);
-        let string = Some(unsafe { str::from_utf8_unchecked(s) }.into());
+        let string = Some(unsafe { str::from_utf8_unchecked(b) }.into());
         Ok(IntLiteral { bits, int, string })
     }
 
