@@ -9,6 +9,7 @@
 use std::fmt::{self, Display, Formatter};
 use std::intrinsics::unlikely;
 use std::ops::{Deref, DerefMut};
+use std::str;
 
 use bitvec::prelude::*;
 use compact_str::CompactString;
@@ -52,13 +53,13 @@ impl IntLiteral {
     /// case-insensitive alphabet 0-9A-Z, so upper- and lowercase letters are
     /// equivalent. A radix in 37..=62 uses the case-sensitive alphabet
     /// 0-9A-Za-z.
-    pub fn parse_radix(s: CompactString, radix: u32) -> Result<Self, ParseError> {
-        let b = s.as_bytes();
+    pub fn parse_radix<B: AsRef<[u8]>>(b: B, radix: u32) -> Result<Self, ParseError> {
+        let b = b.as_ref();
         let (sign, offset) = Self::parse_sign(b);
         if offset == b.len() {
             return Err(ParseError::NoDigits);
         }
-        Self::parse_digits(s, offset, sign, radix)
+        Self::parse_digits(b, offset, sign, radix)
     }
 
     /// Parses an Erlang-like integer literal of the form `base#value`, where
@@ -82,8 +83,8 @@ impl IntLiteral {
     /// - Base 16: `[+-]?(16|[xX])#[0-9A-Fa-f_]+`
     /// - Other bases: `[+-]?[0-9]{1,2}#[0-9A-Za-z_]+`, where the base and
     ///   digits must be in range
-    pub fn parse_erlang_style(s: CompactString) -> Result<Self, ParseError> {
-        let b = s.as_bytes();
+    pub fn parse_erlang_style<B: AsRef<[u8]>>(b: B) -> Result<Self, ParseError> {
+        let b = b.as_ref();
         let (sign, offset) = Self::parse_sign(b);
         let (radix, offset) = match b[offset..] {
             [r, b'#', ..] => (
@@ -108,8 +109,8 @@ impl IntLiteral {
             [] => return Err(ParseError::NoDigits),
             _ => (10, offset),
         };
-        match Self::parse_digits(s, offset, sign, radix) {
-            Err(ParseError::InvalidDigit { ch, .. }) if ch == '#' => Err(ParseError::InvalidRadix),
+        match Self::parse_digits(b, offset, sign, radix) {
+            Err(ParseError::InvalidDigit { ch: '#', .. }) => Err(ParseError::InvalidRadix),
             result => result,
         }
     }
@@ -124,8 +125,8 @@ impl IntLiteral {
     /// - Base 8: `[+-]?0[oO]?[0-7_]+`
     /// - Base 10: `[+-]?[0-9][0-9_]*`
     /// - Base 16: `[+-]?0[xX]?[0-9A-Fa-f_]+`
-    pub fn parse_c_style(s: CompactString) -> Result<Self, ParseError> {
-        let b = s.as_bytes();
+    pub fn parse_c_style<B: AsRef<[u8]>>(b: B) -> Result<Self, ParseError> {
+        let b = b.as_ref();
         let (sign, offset) = Self::parse_sign(b);
         let (radix, offset) = match b[offset..] {
             [b'0', b'b' | b'B', ..] => (2, offset + 2),
@@ -138,7 +139,7 @@ impl IntLiteral {
         if offset == b.len() {
             return Err(ParseError::NoDigits);
         }
-        Self::parse_digits(s, offset, sign, radix)
+        Self::parse_digits(b, offset, sign, radix)
     }
 
     #[inline]
@@ -150,8 +151,8 @@ impl IntLiteral {
         }
     }
 
-    fn parse_digits(
-        s: CompactString,
+    fn parse_digits<B: AsRef<[u8]>>(
+        b: B,
         offset: usize,
         sign: Sign,
         radix: u32,
@@ -163,7 +164,8 @@ impl IntLiteral {
         };
 
         // Skip leading zeros
-        let mut b = &s.as_bytes()[offset..];
+        let s = b.as_ref();
+        let mut b = &s[offset..];
         let mut leading_zeros = 0usize;
         while let Some((ch, b1)) = b.split_first() {
             match ch {
@@ -184,7 +186,7 @@ impl IntLiteral {
         if b.is_empty() {
             return Ok(IntLiteral {
                 bits: convert::signed_bits_from_zero(sign, leading_zeros),
-                string: Some(s),
+                string: Some(unsafe { str::from_utf8_unchecked(s) }.into()),
                 int: Integer::new(),
             });
         }
@@ -207,7 +209,8 @@ impl IntLiteral {
 
         let int = convert::integer_from_digits_radix(digits, sign, radix);
         let bits = convert::signed_bits_from_integer(&int, sign, leading_zeros);
-        Ok(IntLiteral { bits, int, string: Some(s) })
+        let string = Some(unsafe { str::from_utf8_unchecked(s) }.into());
+        Ok(IntLiteral { bits, int, string })
     }
 
     #[inline]
@@ -400,8 +403,8 @@ mod tests {
             parse_test_err!(C, "_1__2__3_", LeadingUnderscore),
         ] {
             let result = match test.syntax {
-                SyntaxStyle::Erlang => IntLiteral::parse_erlang_style(test.string.into()),
-                SyntaxStyle::C => IntLiteral::parse_c_style(test.string.into()),
+                SyntaxStyle::Erlang => IntLiteral::parse_erlang_style(test.string),
+                SyntaxStyle::C => IntLiteral::parse_c_style(test.string),
             };
             assert_eq!(
                 test.result, result,
