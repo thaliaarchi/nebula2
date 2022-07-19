@@ -33,6 +33,7 @@
     split_array,
     trait_alias
 )]
+#![deny(clippy::pedantic)]
 
 pub mod text;
 pub mod ws;

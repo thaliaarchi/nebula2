@@ -14,7 +14,7 @@ use bitvec::{order::BitOrder, slice::BitSlice, store::BitStore};
 use crate::ws::token::{Token, TokenSeq};
 
 const LEN_BITS: u64 = 6;
-const LEN_MASK: u64 = 0b111111;
+const LEN_MASK: u64 = 0b11_1111;
 
 #[derive(Clone, Copy, Default, Eq, Hash)]
 pub struct TokenVec(u64);
@@ -152,7 +152,7 @@ impl TokenVec {
         let mut bits = 0;
         let mut i = 0;
         while i < toks.len() {
-            bits |= (toks[i] as u64) << i * 2;
+            bits |= (toks[i] as u64) << (i * 2);
             i += 1;
         }
         bits

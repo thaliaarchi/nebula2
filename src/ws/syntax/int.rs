@@ -283,25 +283,23 @@ impl Display for IntLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if let Some(ref s) = self.string {
             f.write_str(s.as_str())
+        } else if self.bits.get(1).as_deref() == Some(&true) || self.bits.len() == 2 {
+            write!(f, "{}", self.int)
         } else {
-            if self.bits.get(1).as_deref() == Some(&true) || self.bits.len() == 2 {
-                write!(f, "{}", self.int)
+            // Write numbers with leading zeros in base 2
+            let sign = if self.bits.get(0).as_deref() == Some(&true) {
+                "-"
+            } else if self.bits.len() == 1 {
+                // Sign-only numbers need an explicit positive sign
+                "+"
             } else {
-                // Write numbers with leading zeros in base 2
-                let sign = if self.bits.get(0).as_deref() == Some(&true) {
-                    "-"
-                } else if self.bits.len() == 1 {
-                    // Sign-only numbers need an explicit positive sign
-                    "+"
-                } else {
-                    ""
-                };
-                let bin = self.bits[1..]
-                    .iter()
-                    .map(|b| if *b { '1' } else { '0' })
-                    .collect::<String>();
-                write!(f, "{sign}b#{bin}")
-            }
+                ""
+            };
+            let bin = self.bits[1..]
+                .iter()
+                .map(|b| if *b { '1' } else { '0' })
+                .collect::<String>();
+            write!(f, "{sign}b#{bin}")
         }
     }
 }

@@ -126,7 +126,7 @@ impl<'a> Lexer<'a> {
                 [b'0'..=b'9' | b'+' | b'-', ..] => self.number_or_word(),
                 [b'"', ..] => self.string(),
                 [b'\'', ..] => self.char(),
-                [b'#', ..] | [b';', ..] => self.line_comment(1),
+                [b'#' | b';', ..] => self.line_comment(1),
                 [b'/', b'/', ..] | [b'-', b'-', ..] => self.line_comment(2),
                 [b'/', b'*', ..] => self.block_comment(b'*', b'/'),
                 [b'{', b'-', ..] => self.block_comment_nested(b'{', b'-', b'}'),
