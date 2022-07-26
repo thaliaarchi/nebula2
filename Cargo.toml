@@ -14,12 +14,12 @@ categories = ["compilers"]
 
 [dependencies]
 arrayvec = "0.7.2"
-bitvec = "1.0.0"
+bitvec = "1.0.1"
 bstr = "0.2.17"
-clap = { version = "3.2.8", features = ["deprecated", "derive", "regex", "unicode", "unstable-grouped", "unstable-replace", "unstable-v4", "wrap_help"] }
-compact_str = "0.5.1"
+clap = { version = "3.2.15", features = ["deprecated", "derive", "regex", "unicode", "unstable-grouped", "unstable-replace", "unstable-v4", "wrap_help"] }
+compact_str = "0.5.2"
 enumset = { version = "1.0.11", features = ["std"] }
-gmp-mpfr-sys = { version = "1.4.8", default-features = false }
+gmp-mpfr-sys = { version = "1.4.9", default-features = false }
 paste = "1.0.7"
 rug = { version = "1.16.0", default-features = false, features = ["integer", "num-traits"] }
 smallvec = { version = "1.9.0", features = ["const_generics", "const_new", "may_dangle", "specialization", "union", "write"] }
