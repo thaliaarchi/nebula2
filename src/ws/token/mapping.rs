@@ -13,9 +13,9 @@ use crate::ws::token::{Lexer, Token};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Mapping<T> {
-    pub s: T,
-    pub t: T,
-    pub l: T,
+    s: T,
+    t: T,
+    l: T,
 }
 
 impl<T: Eq> Mapping<T> {
