@@ -34,9 +34,9 @@
 //! (a pun criticizing internet censorship).
 
 // TODO: Parse river crab syntax for `end`. A mechanism for token and opcode
-// extensions would avoid code duplication from wrapping `Parser` and allow for
-// other simple extensions. Alternatively, river and crab could be handled in a
-// comment callback or analysis.
+// extensions would avoid code duplication from wrapping `PrefixParser` and
+// allow for other simple extensions. Alternatively, river and crab could be
+// handled in a comment callback or analysis.
 
 use crate::ws;
 

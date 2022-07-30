@@ -6,13 +6,6 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
-pub use token::Token;
+pub use prefix::*;
 
-pub mod assembly;
-pub mod gmh;
-pub mod inst;
-pub mod syntax;
-pub mod token;
-
-#[cfg(test)]
-mod tests;
+mod prefix;

@@ -35,5 +35,6 @@
 )]
 #![deny(clippy::pedantic)]
 
+pub mod syntax;
 pub mod text;
 pub mod ws;

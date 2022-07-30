@@ -19,8 +19,8 @@ use crate::ws::inst::{Features, Inst, InstArg, Opcode, RawInst};
 use crate::ws::token::{token_vec, Lexer, Token::*, TokenSeq, TokenVec};
 
 #[derive(Clone, Debug)]
-pub struct Parser<'a, L: Lexer> {
-    table: &'a ParseTable,
+pub struct PrefixParser<'a, L: Lexer> {
+    table: &'a PrefixTable,
     lex: L,
     partial: Option<PartialState>,
 }
@@ -39,9 +39,9 @@ enum PartialState {
     ParsingArg(Opcode, BitVec),
 }
 
-impl<'a, L: Lexer> Parser<'a, L> {
-    pub fn new(table: &'a ParseTable, lex: L) -> Self {
-        Parser { table, lex, partial: None }
+impl<'a, L: Lexer> PrefixParser<'a, L> {
+    pub fn new(table: &'a PrefixTable, lex: L) -> Self {
+        PrefixParser { table, lex, partial: None }
     }
 
     fn parse_arg(&mut self, opcode: Opcode, partial: Option<BitVec>) -> RawInst {
@@ -69,11 +69,11 @@ impl<'a, L: Lexer> Parser<'a, L> {
     }
 }
 
-impl<'a, L: Lexer> Iterator for Parser<'a, L> {
+impl<'a, L: Lexer> Iterator for PrefixParser<'a, L> {
     type Item = RawInst;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use {ParseEntry::*, ParseError::*};
+        use {ParseError::*, PrefixEntry::*};
         // Restore state, if an instruction was interrupted with a lex error
         // after being partially parsed.
         let mut seq = match self.partial.take() {
@@ -109,16 +109,16 @@ impl<'a, L: Lexer> Iterator for Parser<'a, L> {
     }
 }
 
-impl<'a, L: Lexer + FusedIterator> const FusedIterator for Parser<'a, L> {}
+impl<'a, L: Lexer + FusedIterator> const FusedIterator for PrefixParser<'a, L> {}
 
 #[derive(Clone)]
-pub struct ParseTable {
-    dense: Box<[Option<ParseEntry>; Self::DENSE_LEN]>,
-    sparse: HashMap<TokenSeq, Option<ParseEntry>>,
+pub struct PrefixTable {
+    dense: Box<[Option<PrefixEntry>; Self::DENSE_LEN]>,
+    sparse: HashMap<TokenSeq, Option<PrefixEntry>>,
 }
 
 #[derive(Clone, Debug)]
-enum ParseEntry {
+enum PrefixEntry {
     Terminal(Opcode),
     Prefix(OpcodeVec),
 }
@@ -126,7 +126,7 @@ enum ParseEntry {
 type OpcodeVec = SmallVec<[Opcode; 16]>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ParserError {
+pub enum TableError {
     Conflict {
         prefix: TokenVec,
         opcodes: OpcodeVec,
@@ -134,12 +134,12 @@ pub enum ParserError {
     NoTokens(Opcode),
 }
 
-impl ParseTable {
+impl PrefixTable {
     const DENSE_MAX: TokenSeq = token_vec![L L L].into();
     const DENSE_LEN: usize = Self::DENSE_MAX.as_usize() + 1;
 
     pub fn empty() -> Self {
-        ParseTable {
+        PrefixTable {
             dense: vec![None; Self::DENSE_LEN]
                 .into_boxed_slice()
                 .try_into()
@@ -149,7 +149,7 @@ impl ParseTable {
     }
 
     pub fn new(features: Features) -> Self {
-        let mut table = ParseTable::empty();
+        let mut table = PrefixTable::empty();
         for opcode in Opcode::iter() {
             if opcode.feature().map_or(true, |f| features.contains(f)) {
                 table.register(opcode).unwrap();
@@ -164,7 +164,7 @@ impl ParseTable {
     }
 
     #[inline]
-    fn get(&self, seq: TokenSeq) -> Option<&ParseEntry> {
+    fn get(&self, seq: TokenSeq) -> Option<&PrefixEntry> {
         if seq <= Self::DENSE_MAX {
             self.dense[seq.as_usize()].as_ref()
         } else {
@@ -173,7 +173,7 @@ impl ParseTable {
     }
 
     #[inline]
-    fn get_mut(&mut self, seq: TokenSeq) -> &mut Option<ParseEntry> {
+    fn get_mut(&mut self, seq: TokenSeq) -> &mut Option<PrefixEntry> {
         if seq <= Self::DENSE_MAX {
             &mut self.dense[seq.as_usize()]
         } else {
@@ -181,15 +181,15 @@ impl ParseTable {
         }
     }
 
-    pub fn register(&mut self, opcode: Opcode) -> Result<(), ParserError> {
+    pub fn register(&mut self, opcode: Opcode) -> Result<(), TableError> {
         #[inline]
-        const fn conflict(seq: TokenSeq, opcodes: OpcodeVec) -> Result<(), ParserError> {
-            Err(ParserError::Conflict { prefix: seq.into(), opcodes })
+        const fn conflict(seq: TokenSeq, opcodes: OpcodeVec) -> Result<(), TableError> {
+            Err(TableError::Conflict { prefix: seq.into(), opcodes })
         }
-        use ParseEntry::*;
+        use PrefixEntry::*;
         let toks = opcode.tokens();
         if toks.len() == 0 {
-            return Err(ParserError::NoTokens(opcode));
+            return Err(TableError::NoTokens(opcode));
         }
         let mut seq = TokenSeq::new();
         for tok in toks {
@@ -215,9 +215,9 @@ impl ParseTable {
     }
 }
 
-impl Debug for ParseTable {
+impl Debug for PrefixTable {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        struct EntryDebug<'a>(TokenSeq, Option<&'a ParseEntry>);
+        struct EntryDebug<'a>(TokenSeq, Option<&'a PrefixEntry>);
         impl<'a> Debug for EntryDebug<'a> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 write!(f, "{}{:?}: {:?}", self.0 .0, TokenVec::from(self.0), self.1)
@@ -237,7 +237,7 @@ impl Debug for ParseTable {
             .collect::<Vec<_>>();
         sparse.sort_by(|a, b| a.0.cmp(&b.0));
 
-        f.debug_struct("ParseTable")
+        f.debug_struct("PrefixTable")
             .field("dense", &dense)
             .field("sparse", &sparse)
             .field("sparse.len", &sparse.len())
@@ -255,16 +255,16 @@ mod tests {
     use super::*;
 
     #[allow(dead_code)]
-    enum ParseEntryOf<T> {
+    enum PrefixEntryOf<T> {
         Unknown,
         Prefix(T),
         Terminal(Opcode),
     }
 
     assert_eq_size!(
-        ParseEntry,
-        ParseEntryOf<Vec<Opcode>>,
-        ParseEntryOf<SmallVec<[Opcode; 16]>>,
+        PrefixEntry,
+        PrefixEntryOf<Vec<Opcode>>,
+        PrefixEntryOf<SmallVec<[Opcode; 16]>>,
     );
     assert_eq_size!(OpcodeVec, Vec<Opcode>, SmallVec<[Opcode; 16]>);
     const_assert!(size_of::<SmallVec<[Opcode; 16]>>() < size_of::<SmallVec<[Opcode; 17]>>());
