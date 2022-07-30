@@ -10,5 +10,7 @@ pub use lex::*;
 pub use mnemonics::*;
 
 #[allow(dead_code)]
+mod cursor;
+#[allow(dead_code)]
 mod lex;
 mod mnemonics;
