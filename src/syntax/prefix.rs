@@ -246,6 +246,18 @@ impl Debug for PrefixTable {
     }
 }
 
+pub trait FromRepr
+where
+    Self: Sized,
+{
+    type Repr: Ord + Sized;
+    const MAX: Self::Repr;
+
+    fn repr(&self) -> Self::Repr;
+    fn try_from_repr(v: Self::Repr) -> Option<Self>;
+    unsafe fn from_repr_unchecked(v: Self::Repr) -> Self;
+}
+
 #[cfg(test)]
 mod tests {
     use std::mem::size_of;

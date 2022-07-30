@@ -6,6 +6,7 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
+use crate::syntax::FromRepr;
 use crate::ws::token::{Token, TokenVec};
 
 // Maximum TokenSeq value for each integer width:
@@ -30,7 +31,7 @@ impl TokenSeq {
 
     #[inline]
     pub const fn pop(&mut self) -> Token {
-        let tok = unsafe { Token::from_unchecked(((self.0 - 1) % 3) as u8) };
+        let tok = unsafe { Token::from_repr_unchecked(((self.0 - 1) % 3) as u8) };
         self.0 = (self.0 - 1) / 3;
         tok
     }

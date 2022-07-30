@@ -18,6 +18,7 @@ mod token_vec;
 
 use std::mem;
 
+use crate::syntax::FromRepr;
 use crate::text::EncodingError;
 
 pub trait Lexer = Iterator<Item = Result<Token, EncodingError>>;
@@ -30,9 +31,26 @@ pub enum Token {
     L = 2,
 }
 
-impl Token {
+impl const FromRepr for Token {
+    type Repr = u8;
+    const MAX: Self::Repr = 3;
+
     #[inline]
-    pub const unsafe fn from_unchecked(n: u8) -> Self {
-        mem::transmute(n)
+    fn repr(&self) -> Self::Repr {
+        *self as u8
+    }
+
+    #[inline]
+    fn try_from_repr(v: Self::Repr) -> Option<Self> {
+        if v < Self::MAX {
+            Some(unsafe { Self::from_repr_unchecked(v) })
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    unsafe fn from_repr_unchecked(v: Self::Repr) -> Self {
+        mem::transmute(v)
     }
 }
