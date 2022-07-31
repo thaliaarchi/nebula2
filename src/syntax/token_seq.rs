@@ -77,6 +77,22 @@ impl<T> const From<usize> for TokenSeq<T> {
     }
 }
 
+impl<T: Copy + FromRepr> From<&[T]> for TokenSeq<T> {
+    fn from(toks: &[T]) -> Self {
+        let mut seq = TokenSeq::new();
+        for &tok in toks {
+            seq.push(tok);
+        }
+        seq
+    }
+}
+
+impl<T: Copy + FromRepr, const N: usize> From<&[T; N]> for TokenSeq<T> {
+    fn from(toks: &[T; N]) -> Self {
+        TokenSeq::from(toks.as_slice())
+    }
+}
+
 pub trait FromRepr
 where
     Self: Sized,
