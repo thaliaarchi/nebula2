@@ -6,8 +6,7 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
-use crate::syntax::FromRepr;
-use crate::ws::token::{Token, TokenVec};
+use std::marker::PhantomData;
 
 // Maximum TokenSeq value for each integer width:
 // - u8  [T T L L L]
@@ -16,33 +15,35 @@ use crate::ws::token::{Token, TokenVec};
 // - u64 [L S T S S T L L S L L S L S S L S L L L S S L L T S S T T S T T L T S T T S S S S]
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TokenSeq(pub u32);
+pub struct TokenSeq<T> {
+    inner: u32,
+    elem: PhantomData<T>,
+}
 
-impl TokenSeq {
+impl<T: FromRepr> TokenSeq<T> {
     #[inline]
     pub const fn new() -> Self {
-        TokenSeq(0)
+        TokenSeq { inner: 0, elem: PhantomData }
     }
 
     #[inline]
-    pub const fn push(&mut self, tok: Token) {
-        self.0 = self.0 * 3 + tok as u32 + 1;
+    pub fn push(&mut self, tok: T) {
+        self.inner = self.inner * T::MAX + tok.repr() + 1;
     }
 
     #[inline]
-    pub const fn pop(&mut self) -> Token {
-        let tok = unsafe { Token::from_repr_unchecked(((self.0 - 1) % 3) as u8) };
-        self.0 = (self.0 - 1) / 3;
+    pub fn pop(&mut self) -> T {
+        let tok = unsafe { T::from_repr_unchecked((self.inner - 1) % T::MAX) };
+        self.inner = (self.inner - 1) / T::MAX;
         tok
     }
 
-    #[allow(dead_code)]
     #[inline]
     pub const fn len(&self) -> u32 {
-        let mut seq = self.0;
+        let mut seq = self.inner;
         let mut len = 0;
         while seq != 0 {
-            seq = (seq - 1) / 3;
+            seq = (seq - 1) / T::MAX;
             len += 1;
         }
         len
@@ -50,40 +51,50 @@ impl TokenSeq {
 
     #[inline]
     pub const fn is_empty(&self) -> bool {
-        self.0 == 0
+        self.inner == 0
     }
 
     #[inline]
     pub const fn as_usize(&self) -> usize {
-        self.0 as usize
+        self.inner as usize
     }
 }
 
-impl const From<usize> for TokenSeq {
+impl<T> const From<u32> for TokenSeq<T> {
+    #[inline]
+    fn from(seq: u32) -> Self {
+        TokenSeq { inner: seq, elem: PhantomData }
+    }
+}
+
+impl<T> const From<usize> for TokenSeq<T> {
     #[inline]
     fn from(seq: usize) -> Self {
-        TokenSeq(seq as u32)
+        TokenSeq {
+            inner: seq as u32,
+            elem: PhantomData,
+        }
     }
 }
 
-impl const From<TokenVec> for TokenSeq {
-    #[inline]
-    fn from(toks: TokenVec) -> Self {
-        let mut seq = TokenSeq::new();
-        for tok in toks {
-            seq.push(tok);
-        }
-        seq
-    }
+pub trait FromRepr
+where
+    Self: Sized,
+{
+    const MAX: u32;
+
+    fn repr(&self) -> u32;
+    fn try_from_repr(v: u32) -> Option<Self>;
+    unsafe fn from_repr_unchecked(v: u32) -> Self;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ws::token::token_vec;
+    use crate::ws::token::{token_vec, TokenVec};
 
     #[test]
-    fn convert_token_seq() {
+    fn convert() {
         macro_rules! token_vecs(
             ($([$($seq:tt)*]),+$(,)?) => { vec![$(token_vec![$($seq)*]),+] }
         );

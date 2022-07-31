@@ -11,8 +11,8 @@ use std::iter::FusedIterator;
 
 use bitvec::{order::BitOrder, slice::BitSlice, store::BitStore};
 
-use crate::syntax::FromRepr;
-use crate::ws::token::{Token, TokenSeq};
+use crate::syntax::{FromRepr, TokenSeq};
+use crate::ws::token::Token;
 
 const LEN_BITS: u64 = 6;
 const LEN_MASK: u64 = 0b11_1111;
@@ -61,7 +61,7 @@ impl TokenVec {
     #[inline]
     pub const fn get(&self, i: usize) -> Token {
         debug_assert!(i < self.len());
-        unsafe { Token::from_repr_unchecked(((self.0 >> Self::shift_for(i)) & 0b11) as u8) }
+        unsafe { Token::from_repr_unchecked(((self.0 >> Self::shift_for(i)) & 0b11) as u32) }
     }
 
     #[inline]
@@ -174,8 +174,20 @@ impl<const N: usize> const From<&[Token; N]> for TokenVec {
     }
 }
 
-impl const From<TokenSeq> for TokenVec {
-    fn from(seq: TokenSeq) -> TokenVec {
+impl From<TokenVec> for Vec<Token> {
+    #[inline]
+    fn from(toks: TokenVec) -> Self {
+        let mut seq = Vec::with_capacity(toks.len());
+        for tok in toks {
+            seq.push(tok);
+        }
+        seq
+    }
+}
+
+impl From<TokenSeq<Token>> for TokenVec {
+    #[inline]
+    fn from(seq: TokenSeq<Token>) -> TokenVec {
         let mut seq = seq;
         let mut toks = TokenVec::new();
         while !seq.is_empty() {
@@ -185,7 +197,19 @@ impl const From<TokenSeq> for TokenVec {
     }
 }
 
+impl From<TokenVec> for TokenSeq<Token> {
+    #[inline]
+    fn from(toks: TokenVec) -> Self {
+        let mut seq = TokenSeq::new();
+        for tok in toks {
+            seq.push(tok);
+        }
+        seq
+    }
+}
+
 impl<T: BitStore, O: BitOrder> From<&BitSlice<T, O>> for TokenVec {
+    #[inline]
     fn from(bits: &BitSlice<T, O>) -> Self {
         let mut toks = TokenVec::new();
         toks.append_bits(bits);

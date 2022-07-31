@@ -8,19 +8,21 @@
 
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::Hash;
 use std::iter::FusedIterator;
 
 use bitvec::vec::BitVec;
 use smallvec::{smallvec, SmallVec};
 use strum::IntoEnumIterator;
 
+use crate::syntax::{FromRepr, TokenSeq};
 use crate::text::EncodingError;
 use crate::ws::inst::{Features, Inst, InstArg, Opcode, RawInst};
-use crate::ws::token::{token_vec, Lexer, Token::*, TokenSeq, TokenVec};
+use crate::ws::token::{token_vec, Lexer, Token, Token::*, TokenVec};
 
 #[derive(Clone, Debug)]
 pub struct PrefixParser<'a, L: Lexer> {
-    table: &'a PrefixTable,
+    table: &'a PrefixTable<Token>,
     lex: L,
     partial: Option<PartialState>,
 }
@@ -35,12 +37,12 @@ pub enum ParseError {
 
 #[derive(Clone, Debug)]
 enum PartialState {
-    ParsingOpcode(TokenSeq),
+    ParsingOpcode(TokenSeq<Token>),
     ParsingArg(Opcode, BitVec),
 }
 
 impl<'a, L: Lexer> PrefixParser<'a, L> {
-    pub fn new(table: &'a PrefixTable, lex: L) -> Self {
+    pub fn new(table: &'a PrefixTable<Token>, lex: L) -> Self {
         PrefixParser { table, lex, partial: None }
     }
 
@@ -112,9 +114,9 @@ impl<'a, L: Lexer> Iterator for PrefixParser<'a, L> {
 impl<'a, L: Lexer + FusedIterator> const FusedIterator for PrefixParser<'a, L> {}
 
 #[derive(Clone)]
-pub struct PrefixTable {
-    dense: Box<[Option<PrefixEntry>; Self::DENSE_LEN]>,
-    sparse: HashMap<TokenSeq, Option<PrefixEntry>>,
+pub struct PrefixTable<T> {
+    dense: Box<[Option<PrefixEntry>]>,
+    sparse: HashMap<TokenSeq<T>, Option<PrefixEntry>>,
 }
 
 #[derive(Clone, Debug)]
@@ -126,46 +128,29 @@ enum PrefixEntry {
 type OpcodeVec = SmallVec<[Opcode; 16]>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TableError {
+pub enum TableError<T> {
     Conflict {
-        prefix: TokenVec,
+        prefix: TokenSeq<T>,
         opcodes: OpcodeVec,
     },
     NoTokens(Opcode),
 }
 
-impl PrefixTable {
-    const DENSE_MAX: TokenSeq = token_vec![L L L].into();
-    const DENSE_LEN: usize = Self::DENSE_MAX.as_usize() + 1;
-
-    pub fn empty() -> Self {
+impl<T> PrefixTable<T>
+where
+    T: Copy + Eq + FromRepr + Hash,
+{
+    #[inline]
+    pub fn new(dense_len: usize) -> Self {
         PrefixTable {
-            dense: vec![None; Self::DENSE_LEN]
-                .into_boxed_slice()
-                .try_into()
-                .unwrap(),
+            dense: vec![None; dense_len].into_boxed_slice(),
             sparse: HashMap::new(),
         }
     }
 
-    pub fn new(features: Features) -> Self {
-        let mut table = PrefixTable::empty();
-        for opcode in Opcode::iter() {
-            if opcode.feature().map_or(true, |f| features.contains(f)) {
-                table.register(opcode).unwrap();
-            }
-        }
-        table
-    }
-
     #[inline]
-    pub fn with_all() -> Self {
-        Self::new(Features::all())
-    }
-
-    #[inline]
-    fn get(&self, seq: TokenSeq) -> Option<&PrefixEntry> {
-        if seq <= Self::DENSE_MAX {
+    fn get(&self, seq: TokenSeq<T>) -> Option<&PrefixEntry> {
+        if seq.as_usize() < self.dense.len() {
             self.dense[seq.as_usize()].as_ref()
         } else {
             self.sparse.get(&seq).map(Option::as_ref).flatten()
@@ -173,26 +158,23 @@ impl PrefixTable {
     }
 
     #[inline]
-    fn get_mut(&mut self, seq: TokenSeq) -> &mut Option<PrefixEntry> {
-        if seq <= Self::DENSE_MAX {
+    fn get_mut(&mut self, seq: TokenSeq<T>) -> &mut Option<PrefixEntry> {
+        if seq.as_usize() < self.dense.len() {
             &mut self.dense[seq.as_usize()]
         } else {
             self.sparse.entry(seq).or_default()
         }
     }
 
-    pub fn register(&mut self, opcode: Opcode) -> Result<(), TableError> {
-        #[inline]
-        const fn conflict(seq: TokenSeq, opcodes: OpcodeVec) -> Result<(), TableError> {
-            Err(TableError::Conflict { prefix: seq.into(), opcodes })
-        }
+    pub fn register(&mut self, toks: &[T], opcode: Opcode) -> Result<(), TableError<T>> {
+        let conflict =
+            |seq: TokenSeq<T>, opcodes| Err(TableError::Conflict { prefix: seq, opcodes });
         use PrefixEntry::*;
-        let toks = opcode.tokens();
         if toks.len() == 0 {
             return Err(TableError::NoTokens(opcode));
         }
         let mut seq = TokenSeq::new();
-        for tok in toks {
+        for &tok in toks {
             let entry = self.get_mut(seq);
             match entry {
                 Some(Terminal(terminal)) => return conflict(seq, smallvec![*terminal, opcode]),
@@ -215,12 +197,37 @@ impl PrefixTable {
     }
 }
 
-impl Debug for PrefixTable {
+impl PrefixTable<Token> {
+    pub fn with_features(features: Features) -> Self {
+        let dense_len = TokenSeq::from(token_vec![L L L]).as_usize() + 1;
+        let mut table = PrefixTable::new(dense_len);
+        for opcode in Opcode::iter() {
+            if opcode.feature().map_or(true, |f| features.contains(f)) {
+                let toks = Vec::from(opcode.tokens());
+                table.register(&toks, opcode).unwrap();
+            }
+        }
+        table
+    }
+
+    #[inline]
+    pub fn with_all() -> Self {
+        Self::with_features(Features::all())
+    }
+}
+
+impl Debug for PrefixTable<Token> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        struct EntryDebug<'a>(TokenSeq, Option<&'a PrefixEntry>);
+        struct EntryDebug<'a>(TokenSeq<Token>, Option<&'a PrefixEntry>);
         impl<'a> Debug for EntryDebug<'a> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                write!(f, "{}{:?}: {:?}", self.0 .0, TokenVec::from(self.0), self.1)
+                write!(
+                    f,
+                    "{}{:?}: {:?}",
+                    self.0.as_usize(),
+                    TokenVec::from(self.0),
+                    self.1
+                )
             }
         }
 
@@ -246,18 +253,6 @@ impl Debug for PrefixTable {
     }
 }
 
-pub trait FromRepr
-where
-    Self: Sized,
-{
-    type Repr: Ord + Sized;
-    const MAX: Self::Repr;
-
-    fn repr(&self) -> Self::Repr;
-    fn try_from_repr(v: Self::Repr) -> Option<Self>;
-    unsafe fn from_repr_unchecked(v: Self::Repr) -> Self;
-}
-
 #[cfg(test)]
 mod tests {
     use std::mem::size_of;
@@ -266,18 +261,23 @@ mod tests {
 
     use super::*;
 
-    #[allow(dead_code)]
-    enum PrefixEntryOf<T> {
-        Unknown,
-        Prefix(T),
-        Terminal(Opcode),
-    }
+    #[test]
+    fn optimal_size() {
+        #[allow(dead_code)]
+        enum PrefixEntryOf<T> {
+            Terminal(Opcode),
+            Prefix(T),
+        }
 
-    assert_eq_size!(
-        PrefixEntry,
-        PrefixEntryOf<Vec<Opcode>>,
-        PrefixEntryOf<SmallVec<[Opcode; 16]>>,
-    );
-    assert_eq_size!(OpcodeVec, Vec<Opcode>, SmallVec<[Opcode; 16]>);
-    const_assert!(size_of::<SmallVec<[Opcode; 16]>>() < size_of::<SmallVec<[Opcode; 17]>>());
+        assert_eq_size!(
+            PrefixEntry,
+            PrefixEntryOf<Vec<Opcode>>,
+            PrefixEntryOf<SmallVec<[Opcode; 16]>>,
+            Option<PrefixEntry>,
+            Option<PrefixEntryOf<Vec<Opcode>>>,
+            Option<PrefixEntryOf<SmallVec<[Opcode; 16]>>>,
+        );
+        assert_eq_size!(SmallVec<[Opcode; 16]>, Vec<Opcode>, SmallVec<[Opcode; 16]>);
+        const_assert!(size_of::<SmallVec<[Opcode; 16]>>() < size_of::<SmallVec<[Opcode; 17]>>());
+    }
 }

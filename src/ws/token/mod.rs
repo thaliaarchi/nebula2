@@ -8,12 +8,10 @@
 
 pub use bit_pack::*;
 pub use mapping::*;
-pub(crate) use token_seq::*;
 pub use token_vec::*;
 
 mod bit_pack;
 mod mapping;
-mod token_seq;
 mod token_vec;
 
 use std::mem;
@@ -26,22 +24,21 @@ pub trait Lexer = Iterator<Item = Result<Token, EncodingError>>;
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Token {
-    S = 0,
-    T = 1,
-    L = 2,
+    S,
+    T,
+    L,
 }
 
 impl const FromRepr for Token {
-    type Repr = u8;
-    const MAX: Self::Repr = 3;
+    const MAX: u32 = 3;
 
     #[inline]
-    fn repr(&self) -> Self::Repr {
-        *self as u8
+    fn repr(&self) -> u32 {
+        *self as u32
     }
 
     #[inline]
-    fn try_from_repr(v: Self::Repr) -> Option<Self> {
+    fn try_from_repr(v: u32) -> Option<Self> {
         if v < Self::MAX {
             Some(unsafe { Self::from_repr_unchecked(v) })
         } else {
@@ -50,7 +47,7 @@ impl const FromRepr for Token {
     }
 
     #[inline]
-    unsafe fn from_repr_unchecked(v: Self::Repr) -> Self {
-        mem::transmute(v)
+    unsafe fn from_repr_unchecked(v: u32) -> Self {
+        mem::transmute(v as u8)
     }
 }
