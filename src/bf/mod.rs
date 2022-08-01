@@ -11,22 +11,20 @@ pub mod ook;
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Inst {
-    /// `>` or `Ook. Ook?`
+    /// `>`
     Right,
-    /// `<` or `Ook? Ook.`
+    /// `<`
     Left,
-    /// `+` or `Ook. Ook.`
+    /// `+`
     Inc,
-    /// `-` or `Ook! Ook!`
+    /// `-`
     Dec,
-    /// `.` or `Ook! Ook.`
+    /// `.`
     Output,
-    /// `,` or `Ook. Ook!`
+    /// `,`
     Input,
-    /// `[` or `Ook! Ook?`
+    /// `[`
     Head,
-    /// `]` or `Ook? Ook!`
+    /// `]`
     Tail,
-    /// `Ook? Ook?`
-    Banana,
 }

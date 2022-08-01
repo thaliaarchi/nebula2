@@ -9,7 +9,7 @@
 use std::mem;
 use std::sync::LazyLock;
 
-use crate::bf::Inst;
+use crate::bf;
 use crate::syntax::{EnumIndex, PrefixTable};
 
 #[repr(u8)]
@@ -26,19 +26,34 @@ macro_rules! T[
     (!) => { Token::Bang };
 ];
 
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Inst {
+    Bf(bf::Inst),
+    /// `Ook? Ook?`
+    Banana,
+}
+
 pub static TABLE: LazyLock<PrefixTable<Token, Inst>> = LazyLock::new(|| {
+    use bf::Inst::*;
     let mut table = PrefixTable::with_dense_width(2);
-    table.insert(&[T![.], T![?]], Inst::Right).unwrap();
-    table.insert(&[T![?], T![.]], Inst::Left).unwrap();
-    table.insert(&[T![.], T![.]], Inst::Inc).unwrap();
-    table.insert(&[T![!], T![!]], Inst::Dec).unwrap();
-    table.insert(&[T![!], T![.]], Inst::Output).unwrap();
-    table.insert(&[T![.], T![!]], Inst::Input).unwrap();
-    table.insert(&[T![!], T![?]], Inst::Head).unwrap();
-    table.insert(&[T![?], T![!]], Inst::Tail).unwrap();
+    table.insert(&[T![.], T![?]], Right.into()).unwrap();
+    table.insert(&[T![?], T![.]], Left.into()).unwrap();
+    table.insert(&[T![.], T![.]], Inc.into()).unwrap();
+    table.insert(&[T![!], T![!]], Dec.into()).unwrap();
+    table.insert(&[T![!], T![.]], Output.into()).unwrap();
+    table.insert(&[T![.], T![!]], Input.into()).unwrap();
+    table.insert(&[T![!], T![?]], Head.into()).unwrap();
+    table.insert(&[T![?], T![!]], Tail.into()).unwrap();
     table.insert(&[T![?], T![?]], Inst::Banana).unwrap();
     table
 });
+
+impl const From<bf::Inst> for Inst {
+    fn from(inst: bf::Inst) -> Self {
+        Inst::Bf(inst)
+    }
+}
 
 impl const EnumIndex for Token {
     const COUNT: u32 = 3;
