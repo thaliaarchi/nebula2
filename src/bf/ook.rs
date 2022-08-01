@@ -29,8 +29,29 @@ macro_rules! T[
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Inst {
+    /// Ook! instructions that are isomorphic to Brainfuck instructions.
+    ///
+    /// - `Ook. Ook?` — `>`
+    /// - `Ook? Ook.` — `<`
+    /// - `Ook. Ook.` — `+`
+    /// - `Ook! Ook!` — `-`
+    /// - `Ook. Ook!` — `,`
+    /// - `Ook! Ook.` — `.`
+    /// - `Ook! Ook?` — `[`
+    /// - `Ook? Ook!` — `]`
     Bf(bf::Inst),
-    /// `Ook? Ook?`
+    /// `Ook? Ook?` — Give the memory pointer a banana.
+    ///
+    /// Its semantics are intentionally left ambiguous, according to the author
+    /// via email:
+    ///
+    /// > Well honestly it's just another joke in what's already a joke
+    /// > language. Feel free to interpret/implement it any way you feel makes
+    /// > the most sense or the most fun. :-)
+    ///
+    /// It was added to the Ook! specification on [2022-03-07](https://web.archive.org/web/20220424180804/https://www.dangermouse.net/esoteric/ook.html)
+    /// and is rarely supported by implementations, instead usually being
+    /// treated as a parse error.
     Banana,
 }
 
@@ -41,8 +62,8 @@ pub static TABLE: LazyLock<PrefixTable<Token, Inst>> = LazyLock::new(|| {
     table.insert(&[T![?], T![.]], Left.into()).unwrap();
     table.insert(&[T![.], T![.]], Inc.into()).unwrap();
     table.insert(&[T![!], T![!]], Dec.into()).unwrap();
-    table.insert(&[T![!], T![.]], Output.into()).unwrap();
     table.insert(&[T![.], T![!]], Input.into()).unwrap();
+    table.insert(&[T![!], T![.]], Output.into()).unwrap();
     table.insert(&[T![!], T![?]], Head.into()).unwrap();
     table.insert(&[T![?], T![!]], Tail.into()).unwrap();
     table.insert(&[T![?], T![?]], Inst::Banana).unwrap();
