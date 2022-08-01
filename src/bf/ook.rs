@@ -57,16 +57,12 @@ impl const From<bf::Inst> for Inst {
 
 impl const EnumIndex for Token {
     const COUNT: u32 = 3;
-}
 
-impl const From<u32> for Token {
-    fn from(v: u32) -> Self {
-        unsafe { mem::transmute(v as u8) }
+    fn from_index(index: u32) -> Self {
+        unsafe { mem::transmute(index as u8) }
     }
-}
 
-impl const From<Token> for u32 {
-    fn from(tok: Token) -> u32 {
-        tok as u32
+    fn to_index(&self) -> u32 {
+        *self as u32
     }
 }
