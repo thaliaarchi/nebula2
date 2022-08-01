@@ -11,6 +11,7 @@ pub use token::Token;
 pub mod assembly;
 pub mod gmh;
 pub mod inst;
+pub mod parse;
 pub mod syntax;
 pub mod token;
 

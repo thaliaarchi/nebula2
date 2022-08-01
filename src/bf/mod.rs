@@ -28,5 +28,5 @@ pub enum Inst {
     /// `]` or `Ook? Ook!`
     Tail,
     /// `Ook? Ook?`
-    Nop,
+    Banana,
 }

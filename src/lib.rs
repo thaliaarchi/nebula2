@@ -30,6 +30,7 @@
     let_else,
     map_try_insert,
     never_type,
+    once_cell,
     split_array,
     trait_alias
 )]

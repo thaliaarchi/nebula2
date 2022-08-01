@@ -12,12 +12,11 @@ use std::iter::FusedIterator;
 
 use bitvec::vec::BitVec;
 use smallvec::{smallvec, SmallVec};
-use strum::IntoEnumIterator;
 
 use crate::syntax::{EnumIndex, TokenSeq};
 use crate::text::EncodingError;
-use crate::ws::inst::{Features, Inst, InstArg, Opcode, RawInst};
-use crate::ws::token::{token_vec, Lexer, Token, Token::*};
+use crate::ws::inst::{Inst, InstArg, Opcode, RawInst};
+use crate::ws::token::{Lexer, Token, Token::*};
 
 #[derive(Clone, Debug)]
 pub struct PrefixParser<'a, L: Lexer> {
@@ -146,7 +145,7 @@ where
         }
     }
 
-    pub fn register(&mut self, toks: &[T], opcode: O) -> Result<(), TableError<T, O>> {
+    pub fn insert(&mut self, toks: &[T], opcode: O) -> Result<(), TableError<T, O>> {
         if toks.len() == 0 {
             return Err(TableError::NoTokens(opcode));
         }
@@ -213,25 +212,6 @@ where
                 None => return Some(Err(ParseError::UnknownOpcode(seq))),
             }
         }
-    }
-}
-
-impl PrefixTable<Token, Opcode> {
-    pub fn with_features(features: Features) -> Self {
-        let dense_len = TokenSeq::from(token_vec![L L L]).as_usize() + 1;
-        let mut table = PrefixTable::new(dense_len);
-        for opcode in Opcode::iter() {
-            if opcode.feature().map_or(true, |f| features.contains(f)) {
-                let toks = Vec::from(opcode.tokens());
-                table.register(&toks, opcode).unwrap();
-            }
-        }
-        table
-    }
-
-    #[inline]
-    pub fn with_all() -> Self {
-        Self::with_features(Features::all())
     }
 }
 
