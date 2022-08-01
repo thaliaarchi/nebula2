@@ -6,7 +6,7 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::iter::FusedIterator;
 
@@ -226,7 +226,7 @@ where
     O: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        struct EntryDebug<'a, T, O>(TokenSeq<T>, Option<&'a PrefixEntry<O>>);
+        struct EntryDebug<'a, T, O>(TokenSeq<T>, &'a Option<PrefixEntry<O>>);
         impl<'a, T: Copy + Debug + EnumIndex, O: Debug> Debug for EntryDebug<'a, T, O> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 write!(f, "{:?}: {:?}", self.0, self.1)
@@ -237,12 +237,18 @@ where
             .dense
             .iter()
             .enumerate()
-            .map(|(i, e)| EntryDebug(TokenSeq::<T>::from(i), e.as_ref()))
+            .map(|(i, e)| EntryDebug(TokenSeq::<T>::from(i), e))
             .collect::<Vec<_>>();
-        let sparse = self.sparse.iter().collect::<BTreeMap<_, _>>();
+        let mut sparse = self
+            .sparse
+            .iter()
+            .map(|(&seq, e)| EntryDebug(seq, e))
+            .collect::<Vec<_>>();
+        sparse.sort_by(|a, b| a.0.cmp(&b.0));
 
         f.debug_struct("PrefixTable")
             .field("dense", &dense)
+            .field("dense.len", &self.dense.len())
             .field("sparse", &sparse)
             .field("sparse.len", &self.sparse.len())
             .field("sparse.capacity", &self.sparse.capacity())
