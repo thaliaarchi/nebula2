@@ -8,6 +8,7 @@
 
 use std::mem;
 
+use crate::bf::Inst;
 use crate::syntax::{FromRepr, PrefixTable, TokenSeq};
 
 #[repr(u8)]
@@ -24,18 +25,18 @@ macro_rules! T[
     (!) => { Token::Bang };
 ];
 
-pub fn parser() -> PrefixTable<Token> {
+pub fn parser() -> PrefixTable<Token, Inst> {
     let dense_len = TokenSeq::from(&[T![!], T![!]]).as_usize() + 1;
-    let table = PrefixTable::new(dense_len);
-    // table.register(&[T![.], T![?]], Inst::Right).unwrap();
-    // table.register(&[T![?], T![.]], Inst::Left).unwrap();
-    // table.register(&[T![.], T![.]], Inst::Inc).unwrap();
-    // table.register(&[T![!], T![!]], Inst::Dec).unwrap();
-    // table.register(&[T![!], T![.]], Inst::Output).unwrap();
-    // table.register(&[T![.], T![!]], Inst::Input).unwrap();
-    // table.register(&[T![!], T![?]], Inst::Head).unwrap();
-    // table.register(&[T![?], T![!]], Inst::Tail).unwrap();
-    // table.register(&[T![?], T![?]], Inst::Nop).unwrap();
+    let mut table = PrefixTable::new(dense_len);
+    table.register(&[T![.], T![?]], Inst::Right).unwrap();
+    table.register(&[T![?], T![.]], Inst::Left).unwrap();
+    table.register(&[T![.], T![.]], Inst::Inc).unwrap();
+    table.register(&[T![!], T![!]], Inst::Dec).unwrap();
+    table.register(&[T![!], T![.]], Inst::Output).unwrap();
+    table.register(&[T![.], T![!]], Inst::Input).unwrap();
+    table.register(&[T![!], T![?]], Inst::Head).unwrap();
+    table.register(&[T![?], T![!]], Inst::Tail).unwrap();
+    table.register(&[T![?], T![?]], Inst::Nop).unwrap();
     table
 }
 

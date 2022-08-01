@@ -6,6 +6,7 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
+use std::fmt::{self, Debug, Formatter};
 use std::marker::PhantomData;
 
 // Maximum TokenSeq value for each integer width:
@@ -14,7 +15,7 @@ use std::marker::PhantomData;
 // - u32 [L S T L S L T T S L S T T S S S S S L L]
 // - u64 [L S T S S T L L S L L S L S S L S L L L S S L L T S S T T S T T L T S T T S S S S]
 #[repr(transparent)]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TokenSeq<T> {
     inner: u32,
     elem: PhantomData<T>,
@@ -90,6 +91,27 @@ impl<T: Copy + FromRepr> From<&[T]> for TokenSeq<T> {
 impl<T: Copy + FromRepr, const N: usize> From<&[T; N]> for TokenSeq<T> {
     fn from(toks: &[T; N]) -> Self {
         TokenSeq::from(toks.as_slice())
+    }
+}
+
+impl<T: FromRepr> From<TokenSeq<T>> for Vec<T> {
+    fn from(seq: TokenSeq<T>) -> Vec<T> {
+        let mut seq = seq;
+        let mut toks = Vec::new();
+        while !seq.is_empty() {
+            toks.push(seq.pop());
+        }
+        toks.reverse();
+        toks
+    }
+}
+
+impl<T: Copy + Debug + FromRepr> Debug for TokenSeq<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("TokenSeq")
+            .field(&self.inner)
+            .field(&Vec::from(*self))
+            .finish()
     }
 }
 

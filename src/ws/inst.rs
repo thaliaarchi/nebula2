@@ -14,13 +14,13 @@ use paste::paste;
 use strum::{Display, EnumIter, IntoStaticStr};
 
 use crate::syntax::ParseError;
-use crate::ws::token::{token_vec, Token::*, TokenVec};
+use crate::ws::token::{token_vec, Token, Token::*, TokenVec};
 
 pub type RawInst = Inst<BitVec, BitVec>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum InstError {
-    ParseError(ParseError),
+    ParseError(ParseError<Token, Opcode>),
 }
 
 pub type Features = EnumSet<Feature>;
@@ -184,9 +184,9 @@ impl<I, L, E: Into<InstError>> const From<E> for Inst<I, L> {
     }
 }
 
-impl const From<ParseError> for InstError {
+impl const From<ParseError<Token, Opcode>> for InstError {
     #[inline]
-    fn from(err: ParseError) -> Self {
+    fn from(err: ParseError<Token, Opcode>) -> Self {
         InstError::ParseError(err)
     }
 }

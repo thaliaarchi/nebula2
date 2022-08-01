@@ -6,7 +6,7 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::iter::FusedIterator;
@@ -18,21 +18,21 @@ use strum::IntoEnumIterator;
 use crate::syntax::{FromRepr, TokenSeq};
 use crate::text::EncodingError;
 use crate::ws::inst::{Features, Inst, InstArg, Opcode, RawInst};
-use crate::ws::token::{token_vec, Lexer, Token, Token::*, TokenVec};
+use crate::ws::token::{token_vec, Lexer, Token, Token::*};
 
 #[derive(Clone, Debug)]
 pub struct PrefixParser<'a, L: Lexer> {
-    table: &'a PrefixTable<Token>,
+    table: &'a PrefixTable<Token, Opcode>,
     lex: L,
     partial: Option<PartialState>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ParseError {
-    EncodingError(EncodingError, TokenVec),
-    UnknownOpcode(TokenVec),
-    IncompleteInst(TokenVec, OpcodeVec),
-    UnterminatedArg(Opcode),
+pub enum ParseError<T: Copy + FromRepr, O> {
+    EncodingError(EncodingError, TokenSeq<T>),
+    UnknownOpcode(TokenSeq<T>),
+    IncompleteInst(TokenSeq<T>, SmallVec<[O; 16]>),
+    UnterminatedArg(Opcode, BitVec),
 }
 
 #[derive(Clone, Debug)]
@@ -42,7 +42,7 @@ enum PartialState {
 }
 
 impl<'a, L: Lexer> PrefixParser<'a, L> {
-    pub fn new(table: &'a PrefixTable<Token>, lex: L) -> Self {
+    pub fn new(table: &'a PrefixTable<Token, Opcode>, lex: L) -> Self {
         PrefixParser { table, lex, partial: None }
     }
 
@@ -58,9 +58,9 @@ impl<'a, L: Lexer> PrefixParser<'a, L> {
                         let mut tokens = opcode.tokens();
                         tokens.append_bits(&bits);
                         self.partial = Some(PartialState::ParsingArg(opcode, bits));
-                        return Err(ParseError::EncodingError(err, tokens));
+                        return Err(ParseError::EncodingError(err, tokens.into()));
                     }
-                    None => return Err(ParseError::UnterminatedArg(opcode)),
+                    None => return Err(ParseError::UnterminatedArg(opcode, bits)),
                 }
             }
             match arg {
@@ -75,37 +75,22 @@ impl<'a, L: Lexer> Iterator for PrefixParser<'a, L> {
     type Item = RawInst;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use {ParseError::*, PrefixEntry::*};
         // Restore state, if an instruction was interrupted with a lex error
         // after being partially parsed.
-        let mut seq = match self.partial.take() {
+        let partial_seq = match self.partial.take() {
             Some(PartialState::ParsingOpcode(partial)) => partial,
             Some(PartialState::ParsingArg(opcode, bits)) => {
                 return Some(self.parse_arg(opcode, Some(bits)));
             }
             None => TokenSeq::new(),
         };
-
-        loop {
-            match self.lex.next() {
-                Some(Ok(tok)) => seq.push(tok),
-                Some(Err(err)) => {
+        match self.table.parse_at(&mut self.lex, partial_seq)? {
+            Ok(opcode) => return Some(self.parse_arg(opcode, None)),
+            Err(err) => {
+                if let ParseError::EncodingError(_, seq) = err {
                     self.partial = Some(PartialState::ParsingOpcode(seq));
-                    return Some(Inst::from(EncodingError(err, seq.into())));
                 }
-                None if seq.is_empty() => return None,
-                None => {
-                    let prefix = match self.table.get(seq) {
-                        Some(Prefix(opcodes)) => opcodes.clone(),
-                        _ => unreachable!(),
-                    };
-                    return Some(Inst::from(IncompleteInst(seq.into(), prefix)));
-                }
-            }
-            match self.table.get(seq) {
-                Some(Terminal(opcode)) => return Some(self.parse_arg(*opcode, None)),
-                Some(Prefix(_)) => {}
-                None => return Some(Inst::from(UnknownOpcode(seq.into()))),
+                return Some(Inst::from(ParseError::from(err)));
             }
         }
     }
@@ -114,31 +99,27 @@ impl<'a, L: Lexer> Iterator for PrefixParser<'a, L> {
 impl<'a, L: Lexer + FusedIterator> const FusedIterator for PrefixParser<'a, L> {}
 
 #[derive(Clone)]
-pub struct PrefixTable<T> {
-    dense: Box<[Option<PrefixEntry>]>,
-    sparse: HashMap<TokenSeq<T>, Option<PrefixEntry>>,
+pub struct PrefixTable<T, O> {
+    dense: Box<[Option<PrefixEntry<O>>]>,
+    sparse: HashMap<TokenSeq<T>, Option<PrefixEntry<O>>>,
 }
 
 #[derive(Clone, Debug)]
-enum PrefixEntry {
-    Terminal(Opcode),
-    Prefix(OpcodeVec),
+pub enum PrefixEntry<O> {
+    Terminal(O),
+    Prefix(SmallVec<[O; 16]>),
 }
-
-type OpcodeVec = SmallVec<[Opcode; 16]>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TableError<T> {
-    Conflict {
-        prefix: TokenSeq<T>,
-        opcodes: OpcodeVec,
-    },
-    NoTokens(Opcode),
+pub enum TableError<T: Copy + FromRepr, O> {
+    Conflict(TokenSeq<T>, SmallVec<[O; 16]>),
+    NoTokens(O),
 }
 
-impl<T> PrefixTable<T>
+impl<T, O> PrefixTable<T, O>
 where
     T: Copy + Eq + FromRepr + Hash,
+    O: Copy,
 {
     #[inline]
     pub fn new(dense_len: usize) -> Self {
@@ -149,7 +130,7 @@ where
     }
 
     #[inline]
-    fn get(&self, seq: TokenSeq<T>) -> Option<&PrefixEntry> {
+    pub fn get(&self, seq: TokenSeq<T>) -> Option<&PrefixEntry<O>> {
         if seq.as_usize() < self.dense.len() {
             self.dense[seq.as_usize()].as_ref()
         } else {
@@ -158,7 +139,7 @@ where
     }
 
     #[inline]
-    fn get_mut(&mut self, seq: TokenSeq<T>) -> &mut Option<PrefixEntry> {
+    pub fn get_mut(&mut self, seq: TokenSeq<T>) -> &mut Option<PrefixEntry<O>> {
         if seq.as_usize() < self.dense.len() {
             &mut self.dense[seq.as_usize()]
         } else {
@@ -166,10 +147,7 @@ where
         }
     }
 
-    pub fn register(&mut self, toks: &[T], opcode: Opcode) -> Result<(), TableError<T>> {
-        let conflict =
-            |seq: TokenSeq<T>, opcodes| Err(TableError::Conflict { prefix: seq, opcodes });
-        use PrefixEntry::*;
+    pub fn register(&mut self, toks: &[T], opcode: O) -> Result<(), TableError<T, O>> {
         if toks.len() == 0 {
             return Err(TableError::NoTokens(opcode));
         }
@@ -177,27 +155,69 @@ where
         for &tok in toks {
             let entry = self.get_mut(seq);
             match entry {
-                Some(Terminal(terminal)) => return conflict(seq, smallvec![*terminal, opcode]),
-                Some(Prefix(opcodes)) => opcodes.push(opcode),
-                None => *entry = Some(Prefix(smallvec![opcode])),
+                Some(PrefixEntry::Terminal(terminal)) => {
+                    return Err(TableError::Conflict(seq, smallvec![*terminal, opcode]));
+                }
+                Some(PrefixEntry::Prefix(opcodes)) => opcodes.push(opcode),
+                None => *entry = Some(PrefixEntry::Prefix(smallvec![opcode])),
             }
             seq.push(tok);
         }
         let entry = self.get_mut(seq);
         match entry {
-            Some(Terminal(terminal)) => return conflict(seq, smallvec![*terminal, opcode]),
-            Some(Prefix(opcodes)) => {
+            Some(PrefixEntry::Terminal(terminal)) => {
+                return Err(TableError::Conflict(seq, smallvec![*terminal, opcode]));
+            }
+            Some(PrefixEntry::Prefix(opcodes)) => {
                 let mut opcodes = opcodes.clone();
                 opcodes.push(opcode);
-                return conflict(seq, opcodes);
+                return Err(TableError::Conflict(seq, opcodes));
             }
-            None => *entry = Some(Terminal(opcode)),
+            None => *entry = Some(PrefixEntry::Terminal(opcode)),
         }
         Ok(())
     }
+
+    pub fn parse<L>(&self, lex: &mut L) -> Option<Result<O, ParseError<T, O>>>
+    where
+        L: Iterator<Item = Result<T, EncodingError>>,
+    {
+        self.parse_at(lex, TokenSeq::new())
+    }
+
+    pub fn parse_at<L>(
+        &self,
+        lex: &mut L,
+        partial: TokenSeq<T>,
+    ) -> Option<Result<O, ParseError<T, O>>>
+    where
+        L: Iterator<Item = Result<T, EncodingError>>,
+    {
+        let mut seq = partial;
+        loop {
+            match lex.next() {
+                Some(Ok(tok)) => seq.push(tok),
+                Some(Err(err)) => return Some(Err(ParseError::EncodingError(err, seq))),
+                None if seq.is_empty() => return None,
+                None => {
+                    let prefix = match self.get(seq) {
+                        Some(PrefixEntry::Terminal(opcode)) => return Some(Ok(*opcode)),
+                        Some(PrefixEntry::Prefix(opcodes)) => opcodes.clone(),
+                        None => SmallVec::new(),
+                    };
+                    return Some(Err(ParseError::IncompleteInst(seq, prefix)));
+                }
+            }
+            match self.get(seq) {
+                Some(PrefixEntry::Terminal(opcode)) => return Some(Ok(*opcode)),
+                Some(PrefixEntry::Prefix(_)) => {}
+                None => return Some(Err(ParseError::UnknownOpcode(seq))),
+            }
+        }
+    }
 }
 
-impl PrefixTable<Token> {
+impl PrefixTable<Token, Opcode> {
     pub fn with_features(features: Features) -> Self {
         let dense_len = TokenSeq::from(token_vec![L L L]).as_usize() + 1;
         let mut table = PrefixTable::new(dense_len);
@@ -216,18 +236,16 @@ impl PrefixTable<Token> {
     }
 }
 
-impl Debug for PrefixTable<Token> {
+impl<T, O> Debug for PrefixTable<T, O>
+where
+    T: Copy + Debug + FromRepr + Ord,
+    O: Debug,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        struct EntryDebug<'a>(TokenSeq<Token>, Option<&'a PrefixEntry>);
-        impl<'a> Debug for EntryDebug<'a> {
+        struct EntryDebug<'a, T, O>(TokenSeq<T>, Option<&'a PrefixEntry<O>>);
+        impl<'a, T: Copy + Debug + FromRepr, O: Debug> Debug for EntryDebug<'a, T, O> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                write!(
-                    f,
-                    "{}{:?}: {:?}",
-                    self.0.as_usize(),
-                    TokenVec::from(self.0),
-                    self.1
-                )
+                write!(f, "{:?}: {:?}", self.0, self.1)
             }
         }
 
@@ -235,20 +253,15 @@ impl Debug for PrefixTable<Token> {
             .dense
             .iter()
             .enumerate()
-            .map(|(i, e)| EntryDebug(TokenSeq::from(i), e.as_ref()))
+            .map(|(i, e)| EntryDebug(TokenSeq::<T>::from(i), e.as_ref()))
             .collect::<Vec<_>>();
-        let mut sparse = self
-            .sparse
-            .iter()
-            .map(|(&seq, e)| EntryDebug(seq, e.as_ref()))
-            .collect::<Vec<_>>();
-        sparse.sort_by(|a, b| a.0.cmp(&b.0));
+        let sparse = self.sparse.iter().collect::<BTreeMap<_, _>>();
 
         f.debug_struct("PrefixTable")
             .field("dense", &dense)
             .field("sparse", &sparse)
-            .field("sparse.len", &sparse.len())
-            .field("sparse.capacity", &sparse.capacity())
+            .field("sparse.len", &self.sparse.len())
+            .field("sparse.capacity", &self.sparse.capacity())
             .finish()
     }
 }
@@ -264,20 +277,18 @@ mod tests {
     #[test]
     fn optimal_size() {
         #[allow(dead_code)]
-        enum PrefixEntryOf<T> {
-            Terminal(Opcode),
-            Prefix(T),
+        enum PrefixEntryOf<T, P> {
+            Terminal(T),
+            Prefix(P),
         }
 
         assert_eq_size!(
-            PrefixEntry,
-            PrefixEntryOf<Vec<Opcode>>,
-            PrefixEntryOf<SmallVec<[Opcode; 16]>>,
-            Option<PrefixEntry>,
-            Option<PrefixEntryOf<Vec<Opcode>>>,
-            Option<PrefixEntryOf<SmallVec<[Opcode; 16]>>>,
+            PrefixEntry<Opcode>,
+            Option<PrefixEntry<Opcode>>,
+            PrefixEntryOf<Opcode, Vec<Opcode>>,
+            PrefixEntryOf<Opcode, SmallVec<[Opcode; 16]>>,
         );
-        assert_eq_size!(SmallVec<[Opcode; 16]>, Vec<Opcode>, SmallVec<[Opcode; 16]>);
+        assert_eq_size!(Vec<Opcode>, SmallVec<[Opcode; 16]>);
         const_assert!(size_of::<SmallVec<[Opcode; 16]>>() < size_of::<SmallVec<[Opcode; 17]>>());
     }
 }
