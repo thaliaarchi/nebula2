@@ -8,14 +8,13 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::{self, Debug, Formatter};
-use std::hash::Hash;
 use std::iter::FusedIterator;
 
 use bitvec::vec::BitVec;
 use smallvec::{smallvec, SmallVec};
 use strum::IntoEnumIterator;
 
-use crate::syntax::{FromRepr, TokenSeq};
+use crate::syntax::{EnumIndex, TokenSeq};
 use crate::text::EncodingError;
 use crate::ws::inst::{Features, Inst, InstArg, Opcode, RawInst};
 use crate::ws::token::{token_vec, Lexer, Token, Token::*};
@@ -28,7 +27,7 @@ pub struct PrefixParser<'a, L: Lexer> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ParseError<T: Copy + FromRepr, O> {
+pub enum ParseError<T: Copy + EnumIndex, O> {
     EncodingError(EncodingError, TokenSeq<T>),
     UnknownOpcode(TokenSeq<T>),
     IncompleteInst(TokenSeq<T>, SmallVec<[O; 16]>),
@@ -111,14 +110,14 @@ pub enum PrefixEntry<O> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TableError<T: Copy + FromRepr, O> {
+pub enum TableError<T: Copy + EnumIndex, O> {
     Conflict(TokenSeq<T>, SmallVec<[O; 16]>),
     NoTokens(O),
 }
 
 impl<T, O> PrefixTable<T, O>
 where
-    T: Copy + Eq + FromRepr + Hash,
+    T: Copy + EnumIndex + Eq,
     O: Copy,
 {
     #[inline]
@@ -238,12 +237,12 @@ impl PrefixTable<Token, Opcode> {
 
 impl<T, O> Debug for PrefixTable<T, O>
 where
-    T: Copy + Debug + FromRepr + Ord,
+    T: Copy + Debug + EnumIndex + Ord,
     O: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         struct EntryDebug<'a, T, O>(TokenSeq<T>, Option<&'a PrefixEntry<O>>);
-        impl<'a, T: Copy + Debug + FromRepr, O: Debug> Debug for EntryDebug<'a, T, O> {
+        impl<'a, T: Copy + Debug + EnumIndex, O: Debug> Debug for EntryDebug<'a, T, O> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 write!(f, "{:?}: {:?}", self.0, self.1)
             }

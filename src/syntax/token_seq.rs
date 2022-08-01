@@ -7,6 +7,7 @@
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
 // Maximum TokenSeq value for each integer width:
@@ -15,27 +16,31 @@ use std::marker::PhantomData;
 // - u32 [L S T L S L T T S L S T T S S S S S L L]
 // - u64 [L S T S S T L L S L L S L S S L S L L L S S L L T S S T T S T T L T S T T S S S S]
 #[repr(transparent)]
-#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenSeq<T> {
     inner: u32,
     elem: PhantomData<T>,
 }
 
-impl<T: FromRepr> TokenSeq<T> {
+impl<T: EnumIndex> TokenSeq<T> {
     #[inline]
     pub const fn new() -> Self {
         TokenSeq { inner: 0, elem: PhantomData }
     }
 
     #[inline]
-    pub fn push(&mut self, tok: T) {
-        self.inner = self.inner * T::MAX + tok.repr() + 1;
+    pub const fn push(&mut self, tok: T) {
+        let v = tok.into();
+        debug_assert!(v < T::COUNT);
+        self.inner = self.inner * T::COUNT + v + 1;
     }
 
     #[inline]
     pub fn pop(&mut self) -> T {
-        let tok = unsafe { T::from_repr_unchecked((self.inner - 1) % T::MAX) };
-        self.inner = (self.inner - 1) / T::MAX;
+        let v = (self.inner - 1) % T::COUNT;
+        debug_assert!(v < T::COUNT);
+        let tok = T::from(v);
+        self.inner = (self.inner - 1) / T::COUNT;
         tok
     }
 
@@ -44,7 +49,7 @@ impl<T: FromRepr> TokenSeq<T> {
         let mut seq = self.inner;
         let mut len = 0;
         while seq != 0 {
-            seq = (seq - 1) / T::MAX;
+            seq = (seq - 1) / T::COUNT;
             len += 1;
         }
         len
@@ -71,6 +76,7 @@ impl<T> const From<u32> for TokenSeq<T> {
 impl<T> const From<usize> for TokenSeq<T> {
     #[inline]
     fn from(seq: usize) -> Self {
+        debug_assert!(seq < u32::MAX as usize);
         TokenSeq {
             inner: seq as u32,
             elem: PhantomData,
@@ -78,7 +84,7 @@ impl<T> const From<usize> for TokenSeq<T> {
     }
 }
 
-impl<T: Copy + FromRepr> From<&[T]> for TokenSeq<T> {
+impl<T: Copy + EnumIndex> From<&[T]> for TokenSeq<T> {
     fn from(toks: &[T]) -> Self {
         let mut seq = TokenSeq::new();
         for &tok in toks {
@@ -88,13 +94,13 @@ impl<T: Copy + FromRepr> From<&[T]> for TokenSeq<T> {
     }
 }
 
-impl<T: Copy + FromRepr, const N: usize> From<&[T; N]> for TokenSeq<T> {
+impl<T: Copy + EnumIndex, const N: usize> From<&[T; N]> for TokenSeq<T> {
     fn from(toks: &[T; N]) -> Self {
         TokenSeq::from(toks.as_slice())
     }
 }
 
-impl<T: FromRepr> From<TokenSeq<T>> for Vec<T> {
+impl<T: EnumIndex> From<TokenSeq<T>> for Vec<T> {
     fn from(seq: TokenSeq<T>) -> Vec<T> {
         let mut seq = seq;
         let mut toks = Vec::new();
@@ -106,7 +112,7 @@ impl<T: FromRepr> From<TokenSeq<T>> for Vec<T> {
     }
 }
 
-impl<T: Copy + Debug + FromRepr> Debug for TokenSeq<T> {
+impl<T: Copy + Debug + EnumIndex> Debug for TokenSeq<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("TokenSeq")
             .field(&self.inner)
@@ -115,15 +121,15 @@ impl<T: Copy + Debug + FromRepr> Debug for TokenSeq<T> {
     }
 }
 
-pub trait FromRepr
-where
-    Self: Sized,
-{
-    const MAX: u32;
+impl<T> Hash for TokenSeq<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Avoids `T: Hash` requirement
+        self.inner.hash(state);
+    }
+}
 
-    fn repr(&self) -> u32;
-    fn try_from_repr(v: u32) -> Option<Self>;
-    unsafe fn from_repr_unchecked(v: u32) -> Self;
+pub trait EnumIndex: From<u32> + Into<u32> {
+    const COUNT: u32;
 }
 
 #[cfg(test)]

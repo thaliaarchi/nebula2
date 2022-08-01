@@ -9,7 +9,7 @@
 use std::mem;
 
 use crate::bf::Inst;
-use crate::syntax::{FromRepr, PrefixTable, TokenSeq};
+use crate::syntax::{EnumIndex, PrefixTable, TokenSeq};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -40,25 +40,18 @@ pub fn parser() -> PrefixTable<Token, Inst> {
     table
 }
 
-impl const FromRepr for Token {
-    const MAX: u32 = 3;
+impl const EnumIndex for Token {
+    const COUNT: u32 = 3;
+}
 
-    #[inline]
-    fn repr(&self) -> u32 {
-        *self as u32
+impl const From<u32> for Token {
+    fn from(v: u32) -> Self {
+        unsafe { mem::transmute(v as u8) }
     }
+}
 
-    #[inline]
-    fn try_from_repr(v: u32) -> Option<Self> {
-        if v < Self::MAX {
-            Some(unsafe { Self::from_repr_unchecked(v) })
-        } else {
-            None
-        }
-    }
-
-    #[inline]
-    unsafe fn from_repr_unchecked(v: u32) -> Self {
-        mem::transmute(v as u8)
+impl const From<Token> for u32 {
+    fn from(tok: Token) -> u32 {
+        tok as u32
     }
 }
