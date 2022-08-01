@@ -10,7 +10,7 @@ use std::mem;
 use std::sync::LazyLock;
 
 use crate::bf::Inst;
-use crate::syntax::{EnumIndex, PrefixTable, TokenSeq};
+use crate::syntax::{EnumIndex, PrefixTable};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -27,8 +27,7 @@ macro_rules! T[
 ];
 
 pub static TABLE: LazyLock<PrefixTable<Token, Inst>> = LazyLock::new(|| {
-    let dense_len = TokenSeq::from(&[T![!], T![!]]).as_usize() + 1;
-    let mut table = PrefixTable::new(dense_len);
+    let mut table = PrefixTable::with_dense_width(2);
     table.insert(&[T![.], T![?]], Inst::Right).unwrap();
     table.insert(&[T![?], T![.]], Inst::Left).unwrap();
     table.insert(&[T![.], T![.]], Inst::Inc).unwrap();

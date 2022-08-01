@@ -10,14 +10,12 @@ use std::sync::LazyLock;
 
 use strum::IntoEnumIterator;
 
-use crate::syntax::{PrefixTable, TokenSeq};
-use crate::token_vec;
+use crate::syntax::PrefixTable;
 use crate::ws::inst::Opcode;
 use crate::ws::token::Token;
 
 pub static TABLE: LazyLock<PrefixTable<Token, Opcode>> = LazyLock::new(|| {
-    let dense_len = TokenSeq::from(token_vec![L L L]).as_usize() + 1;
-    let mut table = PrefixTable::new(dense_len);
+    let mut table = PrefixTable::with_dense_width(3);
     for opcode in Opcode::iter() {
         let toks = Vec::from(opcode.tokens());
         table.insert(&toks, opcode).unwrap();

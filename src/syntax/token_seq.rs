@@ -29,6 +29,17 @@ impl<T: EnumIndex> TokenSeq<T> {
     }
 
     #[inline]
+    pub const fn size_for(width: usize) -> usize {
+        let mut i = width;
+        let mut max = 0;
+        while i > 0 {
+            max = max * T::COUNT + T::COUNT;
+            i -= 1;
+        }
+        max as usize + 1
+    }
+
+    #[inline]
     pub const fn push(&mut self, tok: T) {
         let v = tok.into();
         debug_assert!(v < T::COUNT);

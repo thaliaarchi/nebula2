@@ -128,6 +128,11 @@ where
     }
 
     #[inline]
+    pub fn with_dense_width(width: usize) -> Self {
+        Self::new(TokenSeq::<T>::size_for(width))
+    }
+
+    #[inline]
     pub fn get(&self, seq: TokenSeq<T>) -> Option<&PrefixEntry<O>> {
         if seq.as_usize() < self.dense.len() {
             self.dense[seq.as_usize()].as_ref()
