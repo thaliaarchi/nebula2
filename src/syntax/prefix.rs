@@ -27,9 +27,9 @@ pub enum PrefixEntry<O> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TableError<T: Copy + EnumIndex, O> {
-    Conflict(TokenSeq<T>, SmallVec<[O; 16]>),
-    NoTokens(O),
+pub struct ConflictError<T: Copy + EnumIndex, O> {
+    prefix: TokenSeq<T>,
+    opcodes: SmallVec<[O; 16]>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -75,16 +75,13 @@ where
         }
     }
 
-    pub fn insert(&mut self, toks: &[T], opcode: O) -> Result<(), TableError<T, O>> {
-        if toks.len() == 0 {
-            return Err(TableError::NoTokens(opcode));
-        }
+    pub fn insert(&mut self, toks: &[T], opcode: O) -> Result<(), ConflictError<T, O>> {
         let mut seq = TokenSeq::new();
         for &tok in toks {
             let entry = self.get_mut(seq);
             match entry {
                 Some(PrefixEntry::Terminal(terminal)) => {
-                    return Err(TableError::Conflict(seq, smallvec![*terminal, opcode]));
+                    return Err(ConflictError::new(seq, smallvec![*terminal, opcode]));
                 }
                 Some(PrefixEntry::Prefix(opcodes)) => opcodes.push(opcode),
                 None => *entry = Some(PrefixEntry::Prefix(smallvec![opcode])),
@@ -94,12 +91,12 @@ where
         let entry = self.get_mut(seq);
         match entry {
             Some(PrefixEntry::Terminal(terminal)) => {
-                return Err(TableError::Conflict(seq, smallvec![*terminal, opcode]));
+                return Err(ConflictError::new(seq, smallvec![*terminal, opcode]));
             }
             Some(PrefixEntry::Prefix(opcodes)) => {
                 let mut opcodes = opcodes.clone();
                 opcodes.push(opcode);
-                return Err(TableError::Conflict(seq, opcodes));
+                return Err(ConflictError::new(seq, opcodes));
             }
             None => *entry = Some(PrefixEntry::Terminal(opcode)),
         }
@@ -178,6 +175,12 @@ where
             .field("sparse.len", &self.sparse.len())
             .field("sparse.capacity", &self.sparse.capacity())
             .finish()
+    }
+}
+
+impl<T: Copy + EnumIndex, O> ConflictError<T, O> {
+    const fn new(prefix: TokenSeq<T>, opcodes: SmallVec<[O; 16]>) -> Self {
+        ConflictError { prefix, opcodes }
     }
 }
 
