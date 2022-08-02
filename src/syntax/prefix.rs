@@ -8,93 +8,11 @@
 
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
-use std::iter::FusedIterator;
 
-use bitvec::vec::BitVec;
 use smallvec::{smallvec, SmallVec};
 
 use crate::syntax::{EnumIndex, TokenSeq};
 use crate::text::EncodingError;
-use crate::ws::inst::{Inst, InstArg, Opcode, RawInst};
-use crate::ws::token::{Lexer, Token, Token::*};
-
-#[derive(Clone, Debug)]
-pub struct PrefixParser<'a, L: Lexer> {
-    table: &'a PrefixTable<Token, Opcode>,
-    lex: L,
-    partial: Option<PartialState>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ParseError<T: Copy + EnumIndex, O> {
-    EncodingError(EncodingError, TokenSeq<T>),
-    UnknownOpcode(TokenSeq<T>),
-    IncompleteInst(TokenSeq<T>, SmallVec<[O; 16]>),
-    UnterminatedArg(Opcode, BitVec),
-}
-
-#[derive(Clone, Debug)]
-enum PartialState {
-    ParsingOpcode(TokenSeq<Token>),
-    ParsingArg(Opcode, BitVec),
-}
-
-impl<'a, L: Lexer> PrefixParser<'a, L> {
-    pub fn new(table: &'a PrefixTable<Token, Opcode>, lex: L) -> Self {
-        PrefixParser { table, lex, partial: None }
-    }
-
-    fn parse_arg(&mut self, opcode: Opcode, partial: Option<BitVec>) -> RawInst {
-        Inst::from(opcode).map_arg(|opcode, arg| {
-            let mut bits = partial.unwrap_or_else(|| BitVec::with_capacity(64));
-            loop {
-                match self.lex.next() {
-                    Some(Ok(S)) => bits.push(false),
-                    Some(Ok(T)) => bits.push(true),
-                    Some(Ok(L)) => break,
-                    Some(Err(err)) => {
-                        let mut tokens = opcode.tokens();
-                        tokens.append_bits(&bits);
-                        self.partial = Some(PartialState::ParsingArg(opcode, bits));
-                        return Err(ParseError::EncodingError(err, tokens.into()));
-                    }
-                    None => return Err(ParseError::UnterminatedArg(opcode, bits)),
-                }
-            }
-            match arg {
-                InstArg::Int(()) => Ok(InstArg::Int(bits)),
-                InstArg::Label(()) => Ok(InstArg::Label(bits)),
-            }
-        })
-    }
-}
-
-impl<'a, L: Lexer> Iterator for PrefixParser<'a, L> {
-    type Item = RawInst;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // Restore state, if an instruction was interrupted with a lex error
-        // after being partially parsed.
-        let partial_seq = match self.partial.take() {
-            Some(PartialState::ParsingOpcode(partial)) => partial,
-            Some(PartialState::ParsingArg(opcode, bits)) => {
-                return Some(self.parse_arg(opcode, Some(bits)));
-            }
-            None => TokenSeq::new(),
-        };
-        match self.table.parse_at(&mut self.lex, partial_seq)? {
-            Ok(opcode) => return Some(self.parse_arg(opcode, None)),
-            Err(err) => {
-                if let ParseError::EncodingError(_, seq) = err {
-                    self.partial = Some(PartialState::ParsingOpcode(seq));
-                }
-                return Some(Inst::from(ParseError::from(err)));
-            }
-        }
-    }
-}
-
-impl<'a, L: Lexer + FusedIterator> const FusedIterator for PrefixParser<'a, L> {}
 
 #[derive(Clone)]
 pub struct PrefixTable<T, O> {
@@ -112,6 +30,13 @@ pub enum PrefixEntry<O> {
 pub enum TableError<T: Copy + EnumIndex, O> {
     Conflict(TokenSeq<T>, SmallVec<[O; 16]>),
     NoTokens(O),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum PrefixError<T: Copy + EnumIndex, O> {
+    EncodingError(EncodingError, TokenSeq<T>),
+    UnknownOpcode(TokenSeq<T>),
+    IncompleteOpcode(TokenSeq<T>, SmallVec<[O; 16]>),
 }
 
 impl<T, O> PrefixTable<T, O>
@@ -181,7 +106,7 @@ where
         Ok(())
     }
 
-    pub fn parse<L>(&self, lex: &mut L) -> Option<Result<O, ParseError<T, O>>>
+    pub fn parse<L>(&self, lex: &mut L) -> Option<Result<O, PrefixError<T, O>>>
     where
         L: Iterator<Item = Result<T, EncodingError>>,
     {
@@ -192,7 +117,7 @@ where
         &self,
         lex: &mut L,
         partial: TokenSeq<T>,
-    ) -> Option<Result<O, ParseError<T, O>>>
+    ) -> Option<Result<O, PrefixError<T, O>>>
     where
         L: Iterator<Item = Result<T, EncodingError>>,
     {
@@ -200,7 +125,7 @@ where
         loop {
             match lex.next() {
                 Some(Ok(tok)) => seq.push(tok),
-                Some(Err(err)) => return Some(Err(ParseError::EncodingError(err, seq))),
+                Some(Err(err)) => return Some(Err(PrefixError::EncodingError(err, seq))),
                 None if seq.is_empty() => return None,
                 None => {
                     let prefix = match self.get(seq) {
@@ -208,13 +133,13 @@ where
                         Some(PrefixEntry::Prefix(opcodes)) => opcodes.clone(),
                         None => SmallVec::new(),
                     };
-                    return Some(Err(ParseError::IncompleteInst(seq, prefix)));
+                    return Some(Err(PrefixError::IncompleteOpcode(seq, prefix)));
                 }
             }
             match self.get(seq) {
                 Some(PrefixEntry::Terminal(opcode)) => return Some(Ok(*opcode)),
                 Some(PrefixEntry::Prefix(_)) => {}
-                None => return Some(Err(ParseError::UnknownOpcode(seq))),
+                None => return Some(Err(PrefixError::UnknownOpcode(seq))),
             }
         }
     }
@@ -263,6 +188,7 @@ mod tests {
     use static_assertions::{assert_eq_size, const_assert};
 
     use super::*;
+    use crate::ws::inst::Opcode;
 
     #[test]
     fn optimal_size() {

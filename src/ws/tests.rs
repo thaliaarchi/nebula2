@@ -8,10 +8,9 @@
 
 use bitvec::prelude::*;
 
-use crate::syntax::PrefixParser;
 use crate::text::EncodingError;
 use crate::ws::inst::{Inst, RawInst};
-use crate::ws::parse::TABLE;
+use crate::ws::parse::Parser;
 use crate::ws::token::{
     bit_pack_padded, bit_unpack_padded, Lexer, Mapping, MappingLexer, Token, Token::*,
 };
@@ -102,7 +101,7 @@ fn bit_unpack() -> Result<(), EncodingError> {
 #[test]
 fn parse() {
     let lex = MappingLexer::new_utf8(TUTORIAL_STL, Mapping::<char>::STL, true);
-    let parser = PrefixParser::new(&*TABLE, lex);
+    let parser = Parser::new(lex);
     let insts = parser.collect::<Vec<_>>();
     assert_eq!(get_tutorial_insts(), insts);
 }
@@ -117,7 +116,7 @@ fn parse_dyn() {
             .map(Ok),
     ];
     for lex in lexers {
-        let parser = PrefixParser::new(&*TABLE, lex);
+        let parser = Parser::new(lex);
         let insts = parser.collect::<Vec<_>>();
         assert_eq!(get_tutorial_insts(), insts);
     }

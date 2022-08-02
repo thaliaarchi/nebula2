@@ -13,10 +13,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::{Args, Parser as CliParser, Subcommand};
-use nebula2::syntax::PrefixParser;
 use nebula2::ws::{
     inst::{Feature, Features, Inst, InstArg, InstError},
-    parse::TABLE,
+    parse::Parser,
     syntax::{IntLiteral, LabelLiteral},
     token::{bit_unpack_dynamic, lex_mapping, BitOrderDynamic, Lexer, Mapping, MappingLexer},
 };
@@ -88,7 +87,7 @@ macro_rules! get_parser(
         } else {
             box MappingLexer::new_utf8(&src, Mapping::default(), true)
         };
-        let $parser = PrefixParser::new(&*TABLE, lex);
+        let $parser = Parser::new(lex);
     }
 );
 
