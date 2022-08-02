@@ -66,34 +66,37 @@ fn main() {
     }
 }
 
-// TODO: Structure better with lifetimes
-macro_rules! get_parser(
-    ($parser:ident, $program:ident) => {
-        let src = fs::read(&$program.filename).unwrap();
-        let ext = $program.filename.extension().map(OsStr::to_str).flatten();
-        let lex: Box<dyn Lexer> = if ext == Some("wsx") {
-            box bit_unpack_dynamic(&src, $program.bit_order).into_iter().map(Ok)
-        } else if $program.mapping_s != None || $program.mapping_t != None || $program.mapping_l != None {
+fn parse(program: ProgramOptions) -> Parser<'static, Box<dyn Lexer>> {
+    let src = fs::read(&program.filename).unwrap();
+    let ext = program.filename.extension().map(OsStr::to_str).flatten();
+    let lex: Box<dyn Lexer> = if ext == Some("wsx") {
+        box bit_unpack_dynamic(&src, program.bit_order)
+            .into_iter()
+            .map(Ok)
+    } else {
+        // TODO: Avoid leaking
+        let src: &'static Vec<u8> = Box::leak(box src);
+        if program.mapping_s != None || program.mapping_t != None || program.mapping_l != None {
             lex_mapping(
-                &src,
-                $program.mapping_s.expect("empty S").into(),
-                $program.mapping_t.expect("empty T").into(),
-                $program.mapping_l.expect("empty L").into(),
-                $program.ascii,
+                src,
+                program.mapping_s.expect("empty S").into(),
+                program.mapping_t.expect("empty T").into(),
+                program.mapping_l.expect("empty L").into(),
+                program.ascii,
                 true,
-            ).expect("invalid mapping")
-        } else if $program.ascii {
-            box MappingLexer::new_bytes(&src, Mapping::default())
+            )
+            .expect("invalid mapping")
+        } else if program.ascii {
+            box MappingLexer::new_bytes(src, Mapping::default())
         } else {
-            box MappingLexer::new_utf8(&src, Mapping::default(), true)
-        };
-        let $parser = Parser::new(lex);
-    }
-);
+            box MappingLexer::new_utf8(src, Mapping::default(), true)
+        }
+    };
+    Parser::new(lex)
+}
 
 fn disassemble(program: ProgramOptions) {
-    get_parser!(parser, program);
-    for inst in parser {
+    for inst in parse(program) {
         if let Inst::Error(err) = inst {
             println!("error: {err:?}");
         } else {
@@ -109,9 +112,8 @@ fn disassemble(program: ProgramOptions) {
 }
 
 fn detect_features(program: ProgramOptions) {
-    get_parser!(parser, program);
     let mut features = Features::empty();
-    for inst in parser {
+    for inst in parse(program) {
         if let Inst::Error(err) = inst {
             println!("error: {err:?}");
         } else if let Some(feature) = inst.opcode().feature() {
