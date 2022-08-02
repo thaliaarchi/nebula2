@@ -26,7 +26,6 @@ macro_rules! T[
     (!) => { Token::Bang };
 ];
 
-#[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Inst {
     /// Ook! instructions that are isomorphic to Brainfuck instructions.
@@ -54,6 +53,8 @@ pub enum Inst {
     /// treated as a parse error.
     Banana,
 }
+
+static_assertions::assert_eq_size!(Inst, Option<Inst>, u8);
 
 pub static TABLE: LazyLock<PrefixTable<Token, Inst>> = LazyLock::new(|| {
     use bf::Inst::*;
