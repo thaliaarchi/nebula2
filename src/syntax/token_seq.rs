@@ -16,7 +16,7 @@ use std::marker::PhantomData;
 // - u32 [L S T L S L T T S L S T T S S S S S L L]
 // - u64 [L S T S S T L L S L L S L S S L S L L L S S L L T S S T T S T T L T S T T S S S S]
 #[repr(transparent)]
-#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenSeq<T> {
     inner: u32,
     elem: PhantomData<T>,
@@ -40,7 +40,7 @@ impl<T: EnumIndex> TokenSeq<T> {
     }
 
     #[inline]
-    pub fn push(&mut self, tok: T) {
+    pub fn push(&mut self, tok: &T) {
         let v = tok.to_index();
         debug_assert!(v < T::COUNT);
         self.inner = self.inner * T::COUNT + v + 1;
@@ -95,17 +95,17 @@ impl<T> const From<usize> for TokenSeq<T> {
     }
 }
 
-impl<T: Copy + EnumIndex> From<&[T]> for TokenSeq<T> {
+impl<T: EnumIndex> From<&[T]> for TokenSeq<T> {
     fn from(toks: &[T]) -> Self {
         let mut seq = TokenSeq::new();
-        for &tok in toks {
+        for tok in toks {
             seq.push(tok);
         }
         seq
     }
 }
 
-impl<T: Copy + EnumIndex, const N: usize> From<&[T; N]> for TokenSeq<T> {
+impl<T: EnumIndex, const N: usize> From<&[T; N]> for TokenSeq<T> {
     fn from(toks: &[T; N]) -> Self {
         TokenSeq::from(toks.as_slice())
     }
@@ -123,7 +123,7 @@ impl<T: EnumIndex> From<TokenSeq<T>> for Vec<T> {
     }
 }
 
-impl<T: Copy + Debug + EnumIndex> Debug for TokenSeq<T> {
+impl<T: Debug + EnumIndex> Debug for TokenSeq<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("TokenSeq")
             .field(&self.inner)
@@ -132,9 +132,18 @@ impl<T: Copy + Debug + EnumIndex> Debug for TokenSeq<T> {
     }
 }
 
+// Avoid extra bounds for T from derive
+impl<T> Clone for TokenSeq<T> {
+    fn clone(&self) -> Self {
+        TokenSeq {
+            inner: self.inner,
+            elem: PhantomData,
+        }
+    }
+}
+impl<T> Copy for TokenSeq<T> {}
 impl<T> Hash for TokenSeq<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // Avoids `T: Hash` requirement
         self.inner.hash(state);
     }
 }

@@ -27,13 +27,13 @@ pub enum PrefixEntry<O> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ConflictError<T: Copy + EnumIndex, O> {
+pub struct ConflictError<T: EnumIndex, O> {
     prefix: TokenSeq<T>,
     opcodes: SmallVec<[O; 16]>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum PrefixError<T: Copy + EnumIndex, O> {
+pub enum PrefixError<T: EnumIndex, O> {
     EncodingError(EncodingError, TokenSeq<T>),
     UnknownOpcode(TokenSeq<T>),
     IncompleteOpcode(TokenSeq<T>, SmallVec<[O; 16]>),
@@ -41,7 +41,7 @@ pub enum PrefixError<T: Copy + EnumIndex, O> {
 
 impl<T, O> PrefixTable<T, O>
 where
-    T: Copy + EnumIndex + Eq,
+    T: EnumIndex + Eq,
     O: Copy,
 {
     #[inline]
@@ -77,7 +77,7 @@ where
 
     pub fn insert(&mut self, toks: &[T], opcode: O) -> Result<(), ConflictError<T, O>> {
         let mut seq = TokenSeq::new();
-        for &tok in toks {
+        for tok in toks {
             let entry = self.get_mut(seq);
             match entry {
                 Some(PrefixEntry::Terminal(terminal)) => {
@@ -121,7 +121,7 @@ where
         let mut seq = partial;
         loop {
             match lex.next() {
-                Some(Ok(tok)) => seq.push(tok),
+                Some(Ok(tok)) => seq.push(&tok),
                 Some(Err(err)) => return Some(Err(PrefixError::EncodingError(err, seq))),
                 None if seq.is_empty() => return None,
                 None => {
@@ -144,12 +144,12 @@ where
 
 impl<T, O> Debug for PrefixTable<T, O>
 where
-    T: Copy + Debug + EnumIndex + Ord,
+    T: Debug + EnumIndex + Ord,
     O: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         struct EntryDebug<'a, T, O>(TokenSeq<T>, &'a Option<PrefixEntry<O>>);
-        impl<T: Copy + Debug + EnumIndex, O: Debug> Debug for EntryDebug<'_, T, O> {
+        impl<T: Debug + EnumIndex, O: Debug> Debug for EntryDebug<'_, T, O> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 write!(f, "{:?}: {:?}", self.0, self.1)
             }
@@ -178,7 +178,7 @@ where
     }
 }
 
-impl<T: Copy + EnumIndex, O> ConflictError<T, O> {
+impl<T: EnumIndex, O> ConflictError<T, O> {
     const fn new(prefix: TokenSeq<T>, opcodes: SmallVec<[O; 16]>) -> Self {
         ConflictError { prefix, opcodes }
     }

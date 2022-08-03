@@ -202,7 +202,7 @@ impl From<TokenVec> for TokenSeq<Token> {
     fn from(toks: TokenVec) -> Self {
         let mut seq = TokenSeq::new();
         for tok in toks {
-            seq.push(tok);
+            seq.push(&tok);
         }
         seq
     }
