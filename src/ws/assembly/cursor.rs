@@ -8,7 +8,7 @@
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
 // Copied and adapted from rustc_lexer:
-// https://github.com/rust-lang/rust/blob/1202bbaf48a0a919a2e0cfd8b7dce97e8fc3030d/compiler/rustc_lexer/src/cursor.rs
+// https://github.com/rust-lang/rust/blob/e4417cf020fbcd6182c11637bc6b8694434bd81a/compiler/rustc_lexer/src/cursor.rs
 
 use std::str::Chars;
 
@@ -69,8 +69,8 @@ impl<'a> Cursor<'a> {
     }
 
     /// Returns the amount of already-consumed symbols.
-    pub(crate) fn len_consumed(&self) -> usize {
-        self.initial_len - self.chars.as_str().len()
+    pub(crate) fn len_consumed(&self) -> u32 {
+        (self.initial_len - self.chars.as_str().len()) as u32
     }
 
     /// Resets the number of bytes consumed to 0.
