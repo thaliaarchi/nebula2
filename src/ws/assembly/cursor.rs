@@ -36,14 +36,10 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    /// Returns the last-eaten symbol (or `'\0'` in release builds). For debug
-    /// assertions only.
+    /// Returns the last-eaten symbol. For debug assertions only.
+    #[cfg(debug_assertions)]
     pub(crate) fn prev(&self) -> char {
-        if cfg!(debug_assertions) {
-            self.prev
-        } else {
-            EOF_CHAR
-        }
+        self.prev
     }
 
     /// Peeks the next symbol from the input stream without consuming it. If the

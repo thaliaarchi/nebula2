@@ -6,146 +6,216 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
-use bstr::ByteSlice;
+use crate::ws::assembly::Cursor;
 
-use crate::ws::syntax::IntLiteral;
+/// Parsed token. It doesn't contain information about data that has been
+/// parsed; only the type of the token and its size.
+#[derive(Debug)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub len: u32,
+}
 
-pub enum Token {
+impl Token {
+    #[inline]
+    const fn new(kind: TokenKind, len: u32) -> Token {
+        Token { kind, len }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TokenKind {
+    LineComment {
+        style: LineCommentStyle,
+    },
+    BlockComment {
+        style: BlockCommentStyle,
+        terminated: bool,
+    },
+
     Word,
-    Int(IntLiteral),
-    Char(String),
-    String(String),
-    LF,
-    Comment(Vec<u8>),
+    /// Integer literal
+    Int,
+    /// String literal (`"…"`)
+    String,
+    /// Character literal (`'…'`)
+    Char,
+
+    /// `:`
+    Colon,
+    /// Line feed
+    Lf,
+    /// Whitespace character sequence, excluding line feed
+    Whitespace,
+
+    /// Unknown token not expected by the lexer
+    Unknown,
+}
+use TokenKind::*;
+
+// https://en.wikipedia.org/wiki/Comparison_of_programming_languages_(syntax)#Comments
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum LineCommentStyle {
+    /// `//` (C++)
+    SlashSlash,
+    /// `--` (Haskell)
+    DashDash,
+    /// `#` (shell, Ruby, and Python)
+    Pound,
+    /// `;` (assembly and Scheme)
+    Semi,
 }
 
-pub struct Lexer<'a> {
-    src: &'a [u8],
-    offset: usize,
-    prev_lf: bool,
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum BlockCommentStyle {
+    /// `/*` … `*/` (C)
+    SlashStar,
+    /// `{-` … `-}` (Haskell; nestable)
+    BraceDash,
+    /// `(` … `)` (Forth)
+    Paren,
 }
 
-pub enum TokenError {
-    UnterminatedComment,
-    InvalidUtf8,
-}
+impl Cursor<'_> {
+    /// Scans a token from the input string.
+    fn advance_token(&mut self) -> Token {
+        let first_char = self.bump().unwrap();
+        let token_kind = match first_char {
+            // Comments
+            '/' => match self.first() {
+                '/' => self.line_comment2('/', '/', LineCommentStyle::SlashSlash),
+                '*' => self.block_comment2('/', '*', '*', '/', BlockCommentStyle::SlashStar),
+                _ => self.word(),
+            },
+            '{' if self.first() == '-' => {
+                self.block_comment2_nested('{', '-', '-', '}', BlockCommentStyle::BraceDash)
+            }
+            '-' if self.first() == '-' => self.line_comment2('-', '-', LineCommentStyle::DashDash),
+            '(' => self.block_comment1('(', ')', BlockCommentStyle::Paren),
+            '#' => self.line_comment1('#', LineCommentStyle::Pound),
+            ';' => self.line_comment1(';', LineCommentStyle::Semi),
 
-impl<'a> Lexer<'a> {
-    #[inline]
-    pub const fn new<B>(src: &'a B) -> Self
-    where
-        B: ~const AsRef<[u8]> + ?Sized,
-    {
-        Lexer {
-            src: src.as_ref(),
-            offset: 0,
-            prev_lf: false,
-        }
+            // Literals
+            '+' | '-' | '0'..='9' => self.int_or_word(),
+            '"' => self.string(),
+            '\'' => self.char(),
+
+            ':' => Colon,
+            '\n' => Lf,
+            c if c.is_whitespace() => self.whitespace(),
+            _ => Unknown,
+        };
+        Token::new(token_kind, self.len_consumed())
     }
 
     #[inline]
-    fn string(&mut self) -> Result<Token, TokenError> {
+    fn word(&mut self) -> TokenKind {
         todo!()
     }
 
     #[inline]
-    fn char(&mut self) -> Result<Token, TokenError> {
+    fn int_or_word(&mut self) -> TokenKind {
         todo!()
     }
 
     #[inline]
-    fn line_comment(&mut self, tag_len: usize) -> Result<Token, TokenError> {
-        let lf = self.src[self.offset + tag_len..]
-            .find_byte(b'\n')
-            .map_or(self.src.len(), |i| i + 1);
-        let comment = &self.src[self.offset..lf];
-        self.offset = lf;
-        Ok(Token::Comment(comment.to_owned()))
+    fn string(&mut self) -> TokenKind {
+        todo!()
     }
 
     #[inline]
-    fn block_comment(&mut self, end1: u8, end2: u8) -> Result<Token, TokenError> {
-        let offset = self.offset;
-        self.offset += 3;
-        loop {
-            match self.src[self.offset..].find_byte(end2) {
-                Some(i) => {
-                    self.offset = i + 1;
-                    if self.src[i - 1] == end1 {
-                        return Ok(Token::Comment(self.src[offset..self.offset].to_owned()));
-                    }
-                }
-                None => {
-                    self.offset = self.src.len();
-                    return Err(TokenError::UnterminatedComment);
-                }
-            }
-        }
+    fn char(&mut self) -> TokenKind {
+        todo!()
     }
 
     #[inline]
-    fn block_comment_nested(&mut self, start: u8, mid: u8, end: u8) -> Result<Token, TokenError> {
-        let offset = self.offset;
-        self.offset += 3;
-        let mut level = 1;
-        loop {
-            match self.src[self.offset..].find_byte(mid) {
-                Some(i) => {
-                    self.offset = i + 1;
-                    if self.src[i - 1] == start {
-                        level += 1;
-                    } else if i + 1 != self.src.len() && self.src[i + 1] == end {
-                        self.offset = i + 2;
-                        level -= 1;
-                        if level == 0 {
-                            return Ok(Token::Comment(self.src[offset..self.offset].to_owned()));
-                        }
-                    }
-                }
-                None => {
-                    self.offset = self.src.len();
-                    return Err(TokenError::UnterminatedComment);
-                }
+    fn line_comment1(&mut self, tag: char, style: LineCommentStyle) -> TokenKind {
+        debug_assert!(self.prev() == tag);
+        self.eat_while(|c| c != '\n');
+        LineComment { style }
+    }
+
+    #[inline]
+    fn line_comment2(&mut self, tag1: char, tag2: char, style: LineCommentStyle) -> TokenKind {
+        debug_assert!(self.prev() == tag1 && self.first() == tag2);
+        self.bump();
+        self.eat_while(|c| c != '\n');
+        LineComment { style }
+    }
+
+    #[inline]
+    fn block_comment1(&mut self, open: char, close: char, style: BlockCommentStyle) -> TokenKind {
+        debug_assert!(self.prev() == open);
+        self.eat_while(|c| c != close);
+        let terminated = self.first() == close;
+        if terminated {
+            self.bump();
+        }
+        BlockComment { style, terminated }
+    }
+
+    #[inline]
+    fn block_comment2(
+        &mut self,
+        open1: char,
+        open2: char,
+        close1: char,
+        close2: char,
+        style: BlockCommentStyle,
+    ) -> TokenKind {
+        debug_assert!(self.prev() == open1 && self.first() == open2);
+        self.bump();
+        let mut terminated = false;
+        while let Some(c) = self.bump() {
+            if c == close1 && self.first() == close2 {
+                self.bump();
+                terminated = true;
+                break;
             }
         }
+        BlockComment { style, terminated }
+    }
+
+    #[inline]
+    fn block_comment2_nested(
+        &mut self,
+        open1: char,
+        open2: char,
+        close1: char,
+        close2: char,
+        style: BlockCommentStyle,
+    ) -> TokenKind {
+        debug_assert!(self.prev() == open1 && self.first() == open2);
+        self.bump();
+
+        let mut depth = 1usize;
+        while let Some(c) = self.bump() {
+            match c {
+                c if c == open1 && self.first() == open2 => {
+                    self.bump();
+                    depth += 1;
+                }
+                c if c == close1 && self.first() == close2 => {
+                    self.bump();
+                    depth -= 1;
+                    if depth == 0 {
+                        // This block comment is closed, so for a construction
+                        // like `/* */ */`, there will be a successfully-parsed
+                        // block comment `/* */` and ` */` will be processed
+                        // separately.
+                        break;
+                    }
+                }
+                _ => (),
+            }
+        }
+        BlockComment { style, terminated: depth == 0 }
+    }
+
+    fn whitespace(&mut self) -> TokenKind {
+        debug_assert!(self.prev().is_whitespace());
+        self.eat_while(char::is_whitespace);
+        Whitespace
     }
 }
-
-/*impl<'a> Iterator for Lexer<'a> {
-    type Item = Result<Token, TokenError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let offset = self.offset;
-            let tok = match self.src[offset..] {
-                [b'\n', ..] if !self.prev_lf => {
-                    self.prev_lf = true;
-                    self.offset += 1;
-                    Ok(Token::LF)
-                }
-                [b'0'..=b'9' | b'+' | b'-', ..] => self.number_or_word(),
-                [b'"', ..] => self.string(),
-                [b'\'', ..] => self.char(),
-                [b'#' | b';', ..] => self.line_comment(1),
-                [b'/', b'/', ..] | [b'-', b'-', ..] => self.line_comment(2),
-                [b'/', b'*', ..] => self.block_comment(b'*', b'/'),
-                [b'{', b'-', ..] => self.block_comment_nested(b'{', b'-', b'}'),
-                [b'(', b'*', ..] => self.block_comment_nested(b'(', b'*', b')'),
-                [ch, ..] if ch.is_ascii_whitespace() => {
-                    self.offset += 1;
-                    continue;
-                }
-                [ch, ..] if ch > 0x7f => {
-                    let (ch, size) = bstr::decode_utf8(&self.src[offset..]);
-                    self.offset += size;
-                    match ch {
-                        Some(ch) if ch.is_whitespace() => continue,
-                        None => Err(TokenError::InvalidUtf8),
-                    }
-                }
-                [ch, ..] => {}
-            };
-            return Some(tok);
-        }
-    }
-}*/
