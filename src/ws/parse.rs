@@ -90,7 +90,7 @@ impl<'a, L: Lexer> Parser<'a, L> {
     }
 }
 
-impl<'a, L: Lexer> Iterator for Parser<'a, L> {
+impl<L: Lexer> Iterator for Parser<'_, L> {
     type Item = RawInst;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -115,7 +115,7 @@ impl<'a, L: Lexer> Iterator for Parser<'a, L> {
     }
 }
 
-impl<'a, L: Lexer + FusedIterator> const FusedIterator for Parser<'a, L> {}
+impl<L: Lexer + FusedIterator> const FusedIterator for Parser<'_, L> {}
 
 impl From<PrefixError<Token, Opcode>> for ParseError {
     fn from(err: PrefixError<Token, Opcode>) -> Self {

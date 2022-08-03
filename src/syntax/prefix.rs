@@ -149,7 +149,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         struct EntryDebug<'a, T, O>(TokenSeq<T>, &'a Option<PrefixEntry<O>>);
-        impl<'a, T: Copy + Debug + EnumIndex, O: Debug> Debug for EntryDebug<'a, T, O> {
+        impl<T: Copy + Debug + EnumIndex, O: Debug> Debug for EntryDebug<'_, T, O> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 write!(f, "{:?}: {:?}", self.0, self.1)
             }

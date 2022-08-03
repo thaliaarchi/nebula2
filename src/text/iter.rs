@@ -52,7 +52,7 @@ impl<'a> Utf8Iterator<'a> {
     }
 }
 
-impl<'a> Iterator for Utf8Iterator<'a> {
+impl Iterator for Utf8Iterator<'_> {
     type Item = Result<char, EncodingError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -78,7 +78,7 @@ impl<'a> Iterator for Utf8Iterator<'a> {
     }
 }
 
-impl<'a> const FusedIterator for Utf8Iterator<'a> {}
+impl const FusedIterator for Utf8Iterator<'_> {}
 
 #[derive(Clone, Debug)]
 pub struct ByteIterator<'a> {
@@ -98,7 +98,7 @@ impl<'a> ByteIterator<'a> {
     }
 }
 
-impl<'a> Iterator for ByteIterator<'a> {
+impl Iterator for ByteIterator<'_> {
     type Item = Result<u8, EncodingError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -111,7 +111,7 @@ impl<'a> Iterator for ByteIterator<'a> {
     }
 }
 
-impl<'a> const FusedIterator for ByteIterator<'a> {}
+impl const FusedIterator for ByteIterator<'_> {}
 
 #[cfg(test)]
 mod tests {

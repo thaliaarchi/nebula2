@@ -192,7 +192,7 @@ impl<'a> BytesMappingLexer<'a> {
     }
 }
 
-impl<'a> Iterator for BytesMappingLexer<'a> {
+impl Iterator for BytesMappingLexer<'_> {
     type Item = Result<Token, EncodingError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -207,7 +207,7 @@ impl<'a> Iterator for BytesMappingLexer<'a> {
     }
 }
 
-impl<'a> const FusedIterator for BytesMappingLexer<'a> {}
+impl const FusedIterator for BytesMappingLexer<'_> {}
 
 pub fn lex_mapping<'a>(
     src: &'a [u8],

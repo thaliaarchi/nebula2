@@ -150,7 +150,7 @@ impl File {
     }
 }
 
-impl<'a> Display for FilePosition<'a> {
+impl Display for FilePosition<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}:{}:{}", self.file.path, self.pos.line, self.pos.col)
     }
