@@ -41,7 +41,7 @@ pub enum PrefixError<T: VariantIndex, O> {
 
 impl<T, O> PrefixTable<T, O>
 where
-    T: Eq + VariantIndex,
+    T: VariantIndex,
     O: Copy,
 {
     #[inline]
@@ -144,7 +144,7 @@ where
 
 impl<T, O> Debug for PrefixTable<T, O>
 where
-    T: Debug + Ord + VariantIndex,
+    T: Debug + VariantIndex,
     O: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

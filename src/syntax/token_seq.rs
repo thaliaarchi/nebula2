@@ -6,6 +6,7 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
+use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
@@ -41,7 +42,6 @@ use crate::syntax::VariantIndex;
 /// - 85..=255 variants => capacity 5
 /// - …
 #[repr(transparent)]
-#[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenSeq<T> {
     inner: u32,
     elem: PhantomData<T>,
@@ -160,7 +160,7 @@ impl<T: Debug + VariantIndex> Debug for TokenSeq<T> {
 }
 
 // Avoid extra bounds for T from derive
-impl<T> Clone for TokenSeq<T> {
+impl<T> const Clone for TokenSeq<T> {
     fn clone(&self) -> Self {
         TokenSeq {
             inner: self.inner,
@@ -168,7 +168,28 @@ impl<T> Clone for TokenSeq<T> {
         }
     }
 }
-impl<T> Copy for TokenSeq<T> {}
+impl<T> const Copy for TokenSeq<T> {}
+impl<T: VariantIndex> const Default for TokenSeq<T> {
+    fn default() -> Self {
+        TokenSeq::new()
+    }
+}
+impl<T> const PartialEq for TokenSeq<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+impl<T> const Eq for TokenSeq<T> {}
+impl<T> PartialOrd for TokenSeq<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.inner.partial_cmp(&other.inner)
+    }
+}
+impl<T> Ord for TokenSeq<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.inner.cmp(&other.inner)
+    }
+}
 impl<T> Hash for TokenSeq<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
