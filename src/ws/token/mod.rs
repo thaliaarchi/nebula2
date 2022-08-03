@@ -21,11 +21,15 @@ use crate::text::EncodingError;
 
 pub trait Lexer = Iterator<Item = Result<Token, EncodingError>>;
 
+/// Lexical tokens for Whitespace.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Token {
+    /// Space
     S,
+    /// Tab
     T,
+    /// Line feed
     L,
 }
 

@@ -10,11 +10,34 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
-// Maximum TokenSeq value for each integer width:
-// - u8  [T T L L L]
-// - u16 [T L T T T S T L S L]
-// - u32 [L S T L S L T T S L S T T S S S S S L L]
-// - u64 [L S T S S T L L S L L S L S S L S L L L S S L L T S S T T S T T L T S T T S S S S]
+/// A compact token stack, that represents a sequence of tokens as a scalar.
+///
+/// `TokenSeq` can be used to order or hash token sequences. For example, with
+/// [`ws::Token`](crate::ws::Token), which has 3 variants—`S`, `T`, and `L`—,
+/// `[]` is represented by a `TokenSeq` of 0, `[S]` is 1, `[T]` is 2, `[L]` is
+/// 3, `[S S]` is 4, `[S T]` is 5, etc.
+///
+/// # Capacity
+///
+/// The capacity differs by the number of variants that `T` has (i.e.,
+/// [`<T as VariantIndex>::COUNT`](VariantIndex::COUNT)) and can be calculated
+/// with `TokenSeq::<T>::MAX.len()`. For convenience, the ceiling of the
+/// capacity for common sizes is:
+///
+/// - 2 variants => capacity 32
+/// - 3 variants => capacity 20
+/// - 4 variants => capacity 16
+/// - 5 variants => capacity 14
+/// - 6 variants => capacity 13
+/// - 7 variants => capacity 12
+/// - 8..=9 variants => capacity 11
+/// - 10..=11 variants => capacity 10
+/// - 12..=15 variants => capacity 9
+/// - 16..=23 variants => capacity 8
+/// - 24..=40 variants => capacity 7
+/// - 41..=84 variants => capacity 6
+/// - 85..=255 variants => capacity 5
+/// - …
 #[repr(transparent)]
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenSeq<T> {
@@ -23,6 +46,8 @@ pub struct TokenSeq<T> {
 }
 
 impl<T: VariantIndex> TokenSeq<T> {
+    pub const MAX: TokenSeq<T> = TokenSeq::from(u32::MAX);
+
     #[inline]
     pub const fn new() -> Self {
         TokenSeq { inner: 0, elem: PhantomData }

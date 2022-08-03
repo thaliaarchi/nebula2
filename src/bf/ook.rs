@@ -6,26 +6,33 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
+//! [Ook!](https://www.dangermouse.net/esoteric/ook.html) language syntax.
+
 use std::mem;
 use std::sync::LazyLock;
 
 use crate::bf;
 use crate::syntax::{PrefixTable, VariantIndex};
 
+/// Punctuation tokens used in Ook! syntax.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Token {
+pub enum Punct {
+    /// `Ook.`
     Period,
+    /// `Ook?`
     Question,
+    /// `Ook!`
     Bang,
 }
 
-macro_rules! T[
-    (.) => { Token::Period };
-    (?) => { Token::Question };
-    (!) => { Token::Bang };
+macro_rules! P[
+    (.) => { Punct::Period };
+    (?) => { Punct::Question };
+    (!) => { Punct::Bang };
 ];
 
+/// Ook! instructions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Inst {
     /// Ook! instructions that are isomorphic to Brainfuck instructions.
@@ -39,7 +46,9 @@ pub enum Inst {
     /// - `Ook! Ook?` — `[`
     /// - `Ook? Ook!` — `]`
     Bf(bf::Inst),
-    /// `Ook? Ook?` — Give the memory pointer a banana.
+    /// Extension instruction.
+    ///
+    /// - `Ook? Ook?` — Give the memory pointer a banana.
     ///
     /// Its semantics are intentionally left ambiguous, according to the author
     /// via email:
@@ -56,18 +65,19 @@ pub enum Inst {
 
 static_assertions::assert_eq_size!(Inst, Option<Inst>, u8);
 
-pub static TABLE: LazyLock<PrefixTable<Token, Inst>> = LazyLock::new(|| {
+/// Prefix table for parsing Ook! punctuation.
+pub static TABLE: LazyLock<PrefixTable<Punct, Inst>> = LazyLock::new(|| {
     use bf::Inst::*;
     let mut table = PrefixTable::with_dense_width(2);
-    table.insert(&[T![.], T![?]], Right.into()).unwrap();
-    table.insert(&[T![?], T![.]], Left.into()).unwrap();
-    table.insert(&[T![.], T![.]], Inc.into()).unwrap();
-    table.insert(&[T![!], T![!]], Dec.into()).unwrap();
-    table.insert(&[T![.], T![!]], Input.into()).unwrap();
-    table.insert(&[T![!], T![.]], Output.into()).unwrap();
-    table.insert(&[T![!], T![?]], Head.into()).unwrap();
-    table.insert(&[T![?], T![!]], Tail.into()).unwrap();
-    table.insert(&[T![?], T![?]], Inst::Banana).unwrap();
+    table.insert(&[P![.], P![?]], Right.into()).unwrap();
+    table.insert(&[P![?], P![.]], Left.into()).unwrap();
+    table.insert(&[P![.], P![.]], Inc.into()).unwrap();
+    table.insert(&[P![!], P![!]], Dec.into()).unwrap();
+    table.insert(&[P![.], P![!]], Input.into()).unwrap();
+    table.insert(&[P![!], P![.]], Output.into()).unwrap();
+    table.insert(&[P![!], P![?]], Head.into()).unwrap();
+    table.insert(&[P![?], P![!]], Tail.into()).unwrap();
+    table.insert(&[P![?], P![?]], Inst::Banana).unwrap();
     table
 });
 
@@ -77,7 +87,7 @@ impl const From<bf::Inst> for Inst {
     }
 }
 
-impl const VariantIndex for Token {
+impl const VariantIndex for Punct {
     const COUNT: u32 = 3;
 
     fn variant(index: u32) -> Self {
