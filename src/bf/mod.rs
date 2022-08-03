@@ -6,6 +6,10 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
+use std::mem;
+
+use crate::syntax::VariantIndex;
+
 pub mod ook;
 
 #[repr(u8)]
@@ -27,4 +31,16 @@ pub enum Inst {
     Head,
     /// `]`
     Tail,
+}
+
+impl const VariantIndex for Inst {
+    const COUNT: u32 = 8;
+    #[inline]
+    fn variant(index: u32) -> Self {
+        unsafe { mem::transmute(index as u8) }
+    }
+    #[inline]
+    fn index(&self) -> u32 {
+        *self as u32
+    }
 }

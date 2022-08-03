@@ -11,9 +11,8 @@ use std::sync::LazyLock;
 
 use bitvec::vec::BitVec;
 use smallvec::SmallVec;
-use strum::IntoEnumIterator;
 
-use crate::syntax::{PrefixError, PrefixTable, TokenSeq};
+use crate::syntax::{PrefixError, PrefixTable, TokenSeq, VariantIndex};
 use crate::text::EncodingError;
 use crate::ws::inst::{Inst, InstArg, Opcode, RawInst};
 use crate::ws::token::{Lexer, Token, TokenVec};

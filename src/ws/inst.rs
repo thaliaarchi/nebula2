@@ -7,12 +7,14 @@
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
 use std::fmt::{self, Display, Formatter};
+use std::mem;
 
 use bitvec::vec::BitVec;
 use enumset::{EnumSet, EnumSetType};
 use paste::paste;
-use strum::{Display, EnumIter, IntoStaticStr};
+use strum::{Display, IntoStaticStr};
 
+use crate::syntax::VariantIndex;
 use crate::ws::parse::ParseError;
 use crate::ws::token::{token_vec, Token::*, TokenVec};
 
@@ -41,10 +43,13 @@ macro_rules! map(
     ( , $then:tt) => {};
     ($optional:tt, $then:tt) => { $then };
 );
-
 macro_rules! map_or(
     ( , $($then:expr)?, $else:expr) => { $else };
     ($optional:expr, $($then:expr)?, $else:expr) => { $($then)? };
+);
+macro_rules! count(
+    ($($v:ident)*) => { 0 $(+ count!(@one $v))* };
+    (@one $v:ident) => { 1 };
 );
 
 macro_rules! insts {
@@ -81,7 +86,7 @@ macro_rules! insts {
 
         #[repr(u8)]
         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        #[derive(Display, EnumIter, IntoStaticStr)]
+        #[derive(Display, IntoStaticStr)]
         #[strum(serialize_all = "snake_case")]
         pub enum Opcode {
             $($opcode),+,
@@ -111,6 +116,18 @@ macro_rules! insts {
                 match opcode {
                     $(Opcode::$opcode => Inst::$opcode $((map!($arg, ())))?),+,
                 }
+            }
+        }
+
+        impl const VariantIndex for Opcode {
+            const COUNT: u32 = count!($($opcode)+);
+            #[inline]
+            fn variant(index: u32) -> Self {
+                unsafe { mem::transmute(index as u8) }
+            }
+            #[inline]
+            fn index(&self) -> u32 {
+                *self as u32
             }
         }
     }

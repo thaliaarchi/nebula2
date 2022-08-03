@@ -10,6 +10,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
+use crate::syntax::VariantIndex;
+
 /// A compact token stack, that represents a sequence of tokens as a scalar.
 ///
 /// `TokenSeq` can be used to order or hash token sequences. For example, with
@@ -171,13 +173,6 @@ impl<T> Hash for TokenSeq<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
     }
-}
-
-pub trait VariantIndex {
-    const COUNT: u32;
-
-    fn variant(index: u32) -> Self;
-    fn index(&self) -> u32;
 }
 
 #[cfg(test)]

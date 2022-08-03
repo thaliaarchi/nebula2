@@ -35,11 +35,11 @@ pub enum Token {
 
 impl const VariantIndex for Token {
     const COUNT: u32 = 3;
-
+    #[inline]
     fn variant(index: u32) -> Self {
         unsafe { mem::transmute(index as u8) }
     }
-
+    #[inline]
     fn index(&self) -> u32 {
         *self as u32
     }

@@ -67,19 +67,30 @@ static_assertions::assert_eq_size!(Inst, Option<Inst>, u8);
 
 /// Prefix table for parsing Ook! punctuation.
 pub static TABLE: LazyLock<PrefixTable<Punct, Inst>> = LazyLock::new(|| {
-    use bf::Inst::*;
     let mut table = PrefixTable::with_dense_width(2);
-    table.insert(&[P![.], P![?]], Right.into()).unwrap();
-    table.insert(&[P![?], P![.]], Left.into()).unwrap();
-    table.insert(&[P![.], P![.]], Inc.into()).unwrap();
-    table.insert(&[P![!], P![!]], Dec.into()).unwrap();
-    table.insert(&[P![.], P![!]], Input.into()).unwrap();
-    table.insert(&[P![!], P![.]], Output.into()).unwrap();
-    table.insert(&[P![!], P![?]], Head.into()).unwrap();
-    table.insert(&[P![?], P![!]], Tail.into()).unwrap();
-    table.insert(&[P![?], P![?]], Inst::Banana).unwrap();
+    for inst in Inst::iter() {
+        table.insert(inst.tokens(), inst).unwrap();
+    }
     table
 });
+
+impl Inst {
+    #[inline]
+    pub const fn tokens(&self) -> &'static [Punct] {
+        use bf::Inst::*;
+        match self {
+            Inst::Bf(Right) => &[P![.], P![?]],
+            Inst::Bf(Left) => &[P![?], P![.]],
+            Inst::Bf(Inc) => &[P![.], P![.]],
+            Inst::Bf(Dec) => &[P![!], P![!]],
+            Inst::Bf(Input) => &[P![.], P![!]],
+            Inst::Bf(Output) => &[P![!], P![.]],
+            Inst::Bf(Head) => &[P![!], P![?]],
+            Inst::Bf(Tail) => &[P![?], P![!]],
+            Inst::Banana => &[P![?], P![?]],
+        }
+    }
+}
 
 impl const From<bf::Inst> for Inst {
     fn from(inst: bf::Inst) -> Self {
@@ -89,12 +100,32 @@ impl const From<bf::Inst> for Inst {
 
 impl const VariantIndex for Punct {
     const COUNT: u32 = 3;
-
+    #[inline]
     fn variant(index: u32) -> Self {
         unsafe { mem::transmute(index as u8) }
     }
-
+    #[inline]
     fn index(&self) -> u32 {
         *self as u32
+    }
+}
+
+impl const VariantIndex for Inst {
+    const COUNT: u32 = 9;
+    #[inline]
+    fn variant(index: u32) -> Self {
+        if index != 8 {
+            Inst::Bf(bf::Inst::variant(index))
+        } else {
+            Inst::Banana
+        }
+    }
+    #[inline]
+    fn index(&self) -> u32 {
+        if let Inst::Bf(inst) = self {
+            inst.index()
+        } else {
+            8
+        }
     }
 }
