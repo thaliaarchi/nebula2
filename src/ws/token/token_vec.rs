@@ -11,7 +11,7 @@ use std::iter::FusedIterator;
 
 use bitvec::{order::BitOrder, slice::BitSlice, store::BitStore};
 
-use crate::syntax::{EnumIndex, TokenSeq};
+use crate::syntax::{TokenSeq, VariantIndex};
 use crate::ws::token::Token;
 
 const LEN_BITS: u64 = 6;
@@ -61,7 +61,7 @@ impl TokenVec {
     #[inline]
     pub const fn get(&self, i: usize) -> Token {
         debug_assert!(i < self.len());
-        Token::from_index(((self.0 >> Self::shift_for(i)) & 0b11) as u32)
+        Token::variant(((self.0 >> Self::shift_for(i)) & 0b11) as u32)
     }
 
     #[inline]

@@ -22,7 +22,7 @@ pub struct TokenSeq<T> {
     elem: PhantomData<T>,
 }
 
-impl<T: EnumIndex> TokenSeq<T> {
+impl<T: VariantIndex> TokenSeq<T> {
     #[inline]
     pub const fn new() -> Self {
         TokenSeq { inner: 0, elem: PhantomData }
@@ -41,7 +41,7 @@ impl<T: EnumIndex> TokenSeq<T> {
 
     #[inline]
     pub fn push(&mut self, tok: &T) {
-        let v = tok.to_index();
+        let v = tok.index();
         debug_assert!(v < T::COUNT);
         self.inner = self.inner * T::COUNT + v + 1;
     }
@@ -50,7 +50,7 @@ impl<T: EnumIndex> TokenSeq<T> {
     pub fn pop(&mut self) -> T {
         let v = (self.inner - 1) % T::COUNT;
         debug_assert!(v < T::COUNT);
-        let tok = T::from_index(v);
+        let tok = T::variant(v);
         self.inner = (self.inner - 1) / T::COUNT;
         tok
     }
@@ -95,7 +95,7 @@ impl<T> const From<usize> for TokenSeq<T> {
     }
 }
 
-impl<T: EnumIndex> From<&[T]> for TokenSeq<T> {
+impl<T: VariantIndex> From<&[T]> for TokenSeq<T> {
     fn from(toks: &[T]) -> Self {
         let mut seq = TokenSeq::new();
         for tok in toks {
@@ -105,13 +105,13 @@ impl<T: EnumIndex> From<&[T]> for TokenSeq<T> {
     }
 }
 
-impl<T: EnumIndex, const N: usize> From<&[T; N]> for TokenSeq<T> {
+impl<T: VariantIndex, const N: usize> From<&[T; N]> for TokenSeq<T> {
     fn from(toks: &[T; N]) -> Self {
         TokenSeq::from(toks.as_slice())
     }
 }
 
-impl<T: EnumIndex> From<TokenSeq<T>> for Vec<T> {
+impl<T: VariantIndex> From<TokenSeq<T>> for Vec<T> {
     fn from(seq: TokenSeq<T>) -> Vec<T> {
         let mut seq = seq;
         let mut toks = Vec::new();
@@ -123,7 +123,7 @@ impl<T: EnumIndex> From<TokenSeq<T>> for Vec<T> {
     }
 }
 
-impl<T: Debug + EnumIndex> Debug for TokenSeq<T> {
+impl<T: Debug + VariantIndex> Debug for TokenSeq<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("TokenSeq")
             .field(&self.inner)
@@ -148,11 +148,11 @@ impl<T> Hash for TokenSeq<T> {
     }
 }
 
-pub trait EnumIndex {
+pub trait VariantIndex {
     const COUNT: u32;
 
-    fn from_index(index: u32) -> Self;
-    fn to_index(&self) -> u32;
+    fn variant(index: u32) -> Self;
+    fn index(&self) -> u32;
 }
 
 #[cfg(test)]

@@ -10,7 +10,7 @@ use std::mem;
 use std::sync::LazyLock;
 
 use crate::bf;
-use crate::syntax::{EnumIndex, PrefixTable};
+use crate::syntax::{PrefixTable, VariantIndex};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -77,14 +77,14 @@ impl const From<bf::Inst> for Inst {
     }
 }
 
-impl const EnumIndex for Token {
+impl const VariantIndex for Token {
     const COUNT: u32 = 3;
 
-    fn from_index(index: u32) -> Self {
+    fn variant(index: u32) -> Self {
         unsafe { mem::transmute(index as u8) }
     }
 
-    fn to_index(&self) -> u32 {
+    fn index(&self) -> u32 {
         *self as u32
     }
 }

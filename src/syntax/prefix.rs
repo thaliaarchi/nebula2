@@ -11,7 +11,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use smallvec::{smallvec, SmallVec};
 
-use crate::syntax::{EnumIndex, TokenSeq};
+use crate::syntax::{TokenSeq, VariantIndex};
 use crate::text::EncodingError;
 
 #[derive(Clone)]
@@ -27,13 +27,13 @@ pub enum PrefixEntry<O> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ConflictError<T: EnumIndex, O> {
+pub struct ConflictError<T: VariantIndex, O> {
     prefix: TokenSeq<T>,
     opcodes: SmallVec<[O; 16]>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum PrefixError<T: EnumIndex, O> {
+pub enum PrefixError<T: VariantIndex, O> {
     EncodingError(EncodingError, TokenSeq<T>),
     UnknownOpcode(TokenSeq<T>),
     IncompleteOpcode(TokenSeq<T>, SmallVec<[O; 16]>),
@@ -41,7 +41,7 @@ pub enum PrefixError<T: EnumIndex, O> {
 
 impl<T, O> PrefixTable<T, O>
 where
-    T: EnumIndex + Eq,
+    T: Eq + VariantIndex,
     O: Copy,
 {
     #[inline]
@@ -144,12 +144,12 @@ where
 
 impl<T, O> Debug for PrefixTable<T, O>
 where
-    T: Debug + EnumIndex + Ord,
+    T: Debug + Ord + VariantIndex,
     O: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         struct EntryDebug<'a, T, O>(TokenSeq<T>, &'a Option<PrefixEntry<O>>);
-        impl<T: Debug + EnumIndex, O: Debug> Debug for EntryDebug<'_, T, O> {
+        impl<T: Debug + VariantIndex, O: Debug> Debug for EntryDebug<'_, T, O> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 write!(f, "{:?}: {:?}", self.0, self.1)
             }
@@ -178,7 +178,7 @@ where
     }
 }
 
-impl<T: EnumIndex, O> ConflictError<T, O> {
+impl<T: VariantIndex, O> ConflictError<T, O> {
     const fn new(prefix: TokenSeq<T>, opcodes: SmallVec<[O; 16]>) -> Self {
         ConflictError { prefix, opcodes }
     }

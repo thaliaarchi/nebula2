@@ -16,7 +16,7 @@ mod token_vec;
 
 use std::mem;
 
-use crate::syntax::EnumIndex;
+use crate::syntax::VariantIndex;
 use crate::text::EncodingError;
 
 pub trait Lexer = Iterator<Item = Result<Token, EncodingError>>;
@@ -29,14 +29,14 @@ pub enum Token {
     L,
 }
 
-impl const EnumIndex for Token {
+impl const VariantIndex for Token {
     const COUNT: u32 = 3;
 
-    fn from_index(index: u32) -> Self {
+    fn variant(index: u32) -> Self {
         unsafe { mem::transmute(index as u8) }
     }
 
-    fn to_index(&self) -> u32 {
+    fn index(&self) -> u32 {
         *self as u32
     }
 }
