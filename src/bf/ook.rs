@@ -12,7 +12,7 @@ use std::mem;
 use std::sync::LazyLock;
 
 use crate::bf;
-use crate::syntax::{PrefixTable, VariantIndex};
+use crate::syntax::{PrefixTable, Tokens, VariantIndex};
 
 /// Punctuation tokens used in Ook! syntax.
 #[repr(u8)]
@@ -66,17 +66,13 @@ pub enum Inst {
 static_assertions::assert_eq_size!(Inst, Option<Inst>, u8);
 
 /// Prefix table for parsing Ook! punctuation.
-pub static TABLE: LazyLock<PrefixTable<Punct, Inst>> = LazyLock::new(|| {
-    let mut table = PrefixTable::with_dense_width(2);
-    for inst in Inst::iter() {
-        table.insert(inst.tokens(), inst).unwrap();
-    }
-    table
-});
+pub static TABLE: LazyLock<PrefixTable<Punct, Inst>> = LazyLock::new(|| PrefixTable::with_all(2));
 
-impl Inst {
+impl const Tokens for Inst {
+    type Token = Punct;
+
     #[inline]
-    pub const fn tokens(&self) -> &'static [Punct] {
+    fn tokens(&self) -> &'static [Punct] {
         use bf::Inst::*;
         match self {
             Inst::Bf(Right) => &[P![.], P![?]],

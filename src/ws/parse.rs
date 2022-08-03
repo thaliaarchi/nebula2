@@ -12,20 +12,13 @@ use std::sync::LazyLock;
 use bitvec::vec::BitVec;
 use smallvec::SmallVec;
 
-use crate::syntax::{PrefixError, PrefixTable, TokenSeq, VariantIndex};
+use crate::syntax::{PrefixError, PrefixTable, TokenSeq, Tokens};
 use crate::text::EncodingError;
 use crate::ws::inst::{Inst, InstArg, Opcode, RawInst};
 use crate::ws::token::{Lexer, Token, TokenVec};
 
 /// Prefix table for parsing Whitespace opcodes.
-pub static TABLE: LazyLock<PrefixTable<Token, Opcode>> = LazyLock::new(|| {
-    let mut table = PrefixTable::with_dense_width(3);
-    for opcode in Opcode::iter() {
-        let toks = Vec::from(opcode.tokens());
-        table.insert(&toks, opcode).unwrap();
-    }
-    table
-});
+pub static TABLE: LazyLock<PrefixTable<Token, Opcode>> = LazyLock::new(|| PrefixTable::with_all(3));
 
 #[derive(Clone, Debug)]
 pub struct Parser<'a, L> {
@@ -74,7 +67,7 @@ impl<'a, L: Lexer> Parser<'a, L> {
                     Some(Ok(Token::T)) => bits.push(true),
                     Some(Ok(Token::L)) => break,
                     Some(Err(err)) => {
-                        let mut toks = opcode.tokens();
+                        let mut toks = TokenVec::from(opcode.tokens());
                         toks.append_bits(&bits);
                         self.partial = Some(PartialState::ParsingArg(opcode, bits));
                         return Err(ParseError::EncodingError(err, toks));

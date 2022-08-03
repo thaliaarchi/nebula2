@@ -142,6 +142,20 @@ where
     }
 }
 
+impl<T, O> PrefixTable<T, O>
+where
+    T: Debug + VariantIndex + 'static,
+    O: Copy + Debug + Tokens<Token = T> + VariantIndex,
+{
+    pub fn with_all(width: usize) -> Self {
+        let mut table = PrefixTable::with_dense_width(width);
+        for opcode in O::iter() {
+            table.insert(opcode.tokens(), opcode).unwrap();
+        }
+        table
+    }
+}
+
 impl<T, O> Debug for PrefixTable<T, O>
 where
     T: Debug + VariantIndex,
@@ -182,6 +196,12 @@ impl<T: VariantIndex, O> ConflictError<T, O> {
     const fn new(prefix: TokenSeq<T>, opcodes: SmallVec<[O; 16]>) -> Self {
         ConflictError { prefix, opcodes }
     }
+}
+
+pub trait Tokens {
+    type Token;
+
+    fn tokens(&self) -> &'static [Self::Token];
 }
 
 #[cfg(test)]

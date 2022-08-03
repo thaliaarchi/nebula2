@@ -14,9 +14,9 @@ use enumset::{EnumSet, EnumSetType};
 use paste::paste;
 use strum::{Display, IntoStaticStr};
 
-use crate::syntax::VariantIndex;
+use crate::syntax::{Tokens, VariantIndex};
 use crate::ws::parse::ParseError;
-use crate::ws::token::{token_vec, Token::*, TokenVec};
+use crate::ws::token::{Token, Token::*};
 
 pub type RawInst = Inst<BitVec, BitVec>;
 
@@ -94,18 +94,22 @@ macro_rules! insts {
 
         impl Opcode {
             #[inline]
-            pub const fn tokens(&self) -> TokenVec {
-                match self {
-                    $(Opcode::$opcode => const { token_vec![$($seq)+] }),+
-                }
-            }
-
-            #[inline]
             pub const fn feature(&self) -> Option<Feature> {
                 match self {
                     $(Opcode::$opcode => {
                         map_or!($($feature)?, $(Some(Feature::$feature))?, None)
                     }),+,
+                }
+            }
+        }
+
+        impl const Tokens for Opcode {
+            type Token = Token;
+
+            #[inline]
+            fn tokens(&self) -> &'static [Token] {
+                match self {
+                    $(Opcode::$opcode => &[$($seq),+]),+
                 }
             }
         }
