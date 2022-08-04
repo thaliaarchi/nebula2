@@ -6,8 +6,13 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
-//! [Spoon](https://web.archive.org/web/20140228003324/http://www.bluedust.dontexist.com/spoon)
-//! language syntax.
+//! Spoon language.
+//!
+//! # Resources
+//!
+//! - [Language specification](https://web.archive.org/web/20140228003324/http://www.bluedust.dontexist.com/spoon)
+//! - [Reference interpreter mirror](http://marquisdegeek.com/pub/sources/spoon-v1.zip)
+//! - [Esolang wiki](https://esolangs.org/wiki/Talk:Spoon)
 
 use std::mem;
 use std::sync::LazyLock;
@@ -47,11 +52,11 @@ pub enum Inst {
     Bf(bf::Inst),
     /// Outputs the stack.
     ///
-    /// - `00101110` – `DEBUG`
+    /// - `00101110` (`DEBUG`) — `#`
     Debug,
     /// Quits the program.
     ///
-    /// - `00101111` – `EXIT`
+    /// - `00101111` (`EXIT`)
     Exit,
 }
 

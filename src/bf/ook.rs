@@ -6,7 +6,12 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
-//! [Ook!](https://www.dangermouse.net/esoteric/ook.html) language syntax.
+//! Ook! language.
+//!
+//! # Resources
+//!
+//! - [Language specification](https://www.dangermouse.net/esoteric/ook.html)
+//! - [Esolang wiki](https://esolangs.org/wiki/Ook!)
 
 use std::mem;
 use std::sync::LazyLock;
