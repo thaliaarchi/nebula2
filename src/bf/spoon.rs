@@ -14,11 +14,14 @@
 //! - [Reference interpreter mirror](http://marquisdegeek.com/pub/sources/spoon-v1.zip)
 //! - [Esolang wiki](https://esolangs.org/wiki/Talk:Spoon)
 
+use std::iter;
 use std::mem;
 use std::sync::LazyLock;
 
+use bitvec::prelude::*;
+
 use crate::bf;
-use crate::syntax::{PrefixTable, Tokens, VariantIndex};
+use crate::syntax::{PrefixError, PrefixTable, Tokens, VariantIndex};
 
 /// Spoon tokens.
 #[repr(u8)]
@@ -66,6 +69,27 @@ pub static TABLE: LazyLock<PrefixTable<Token, Inst>> = LazyLock::new(|| {
     table.insert_all();
     table
 });
+
+impl Token {
+    pub fn iter_bits<T: BitStore, O: BitOrder>(
+        bits: &BitSlice<T, O>,
+        swap: bool,
+    ) -> impl Iterator<Item = Token> + '_ {
+        bits.iter()
+            .by_vals()
+            .map(move |bit| if bit ^ swap { Token::B } else { Token::A })
+    }
+}
+
+impl Inst {
+    pub fn parse<I: Iterator<Item = Token>>(
+        lex: I,
+    ) -> impl Iterator<Item = Result<Inst, PrefixError<Token, Inst>>> {
+        let mut lex = lex.map(|tok| Ok(tok));
+        let table = &*TABLE;
+        iter::from_fn(move || table.parse(&mut lex))
+    }
+}
 
 impl const Tokens for Inst {
     type Token = Token;
@@ -115,5 +139,58 @@ impl const VariantIndex for Inst {
     #[inline]
     fn index(&self) -> u32 {
         unsafe { mem::transmute::<_, u8>(*self) as u32 }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! insts[
+        (@inst +) => { Inst::Bf(bf::Inst::Inc) };
+        (@inst -) => { Inst::Bf(bf::Inst::Dec) };
+        (@inst >) => { Inst::Bf(bf::Inst::Right) };
+        (@inst <) => { Inst::Bf(bf::Inst::Left) };
+        (@inst ']') => { Inst::Bf(bf::Inst::Tail) };
+        (@inst '[') => { Inst::Bf(bf::Inst::Head) };
+        (@inst .) => { Inst::Bf(bf::Inst::Output) };
+        (@inst ,) => { Inst::Bf(bf::Inst::Input) };
+        (@inst #) => { Inst::Debug };
+        (@inst DEBUG) => { Inst::Debug };
+        (@inst EXIT) => { Inst::Exit };
+        ($($inst:tt)*) => { &[$(insts!(@inst $inst)),+] };
+    ];
+
+    #[test]
+    fn parse() {
+        // From `spoon-v1.zip/Examples/HelloWorld.sp`
+        let bits = bitvec![
+            0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+            1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0,
+            0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0,
+            1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1,
+            0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0,
+            0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1,
+            0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1,
+            0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0,
+        ];
+        let insts = Inst::parse(Token::iter_bits(&bits, false))
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        const INSTS: &'static [Inst] = insts![
+            > + + + + + + + + + '[' < + + + + + + + + > - ']' < . > + + + + + + + '[' < + + + + > -
+            ']' < + . + + + + + + + . . + + + . > + + + + + + + + + + + '[' < - - - - - - > - ']' <
+            - . - - - - - - - - - - - - . > + + + + + + + + + + + '[' < + + + + + > - ']' < . > + +
+            + + + + '[' < + + + + > - ']' < . + + + . - - - - - - . - - - - - - - - . > + + + + + +
+            + + + + + '[' < - - - - - - > - ']' < - .
+        ];
+        assert_eq!(INSTS, insts);
     }
 }

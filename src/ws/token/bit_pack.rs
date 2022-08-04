@@ -10,12 +10,7 @@
 
 use std::mem::size_of;
 
-use bitvec::{
-    order::{BitOrder, Lsb0, Msb0},
-    slice::BitSlice,
-    store::BitStore,
-    vec::BitVec,
-};
+use bitvec::prelude::*;
 use strum::{Display, EnumString};
 
 use crate::ws::token::Token;
