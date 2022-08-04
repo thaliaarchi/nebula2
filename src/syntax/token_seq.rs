@@ -199,14 +199,14 @@ impl<T> Hash for TokenSeq<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ws::token::{token_vec, TokenVec};
+    use crate::ws::token::{Token, Token::*};
 
     #[test]
     fn convert() {
-        macro_rules! token_vecs(
-            ($([$($seq:tt)*]),+$(,)?) => { vec![$(token_vec![$($seq)*]),+] }
+        macro_rules! tokens(
+            ($([$($seq:tt)*]),+$(,)?) => { vec![$(&[$($seq),*]),+] }
         );
-        let seqs: Vec<TokenVec> = token_vecs![
+        let seqs: Vec<&[Token]> = tokens![
             [],
             [S], [T], [L],
             [S S], [S T], [S L],
@@ -220,7 +220,7 @@ mod tests {
             let seq = TokenSeq::from(i);
             let seq2 = TokenSeq::from(toks);
             assert_eq!(seq, seq2, "TokenSeq::from({toks:?})");
-            let toks2 = TokenVec::from(seq);
+            let toks2 = Vec::from(seq);
             assert_eq!(toks, toks2, "TokenVec::from({seq:?})");
         }
     }

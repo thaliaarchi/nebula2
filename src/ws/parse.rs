@@ -29,9 +29,9 @@ pub struct Parser<'a, L> {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ParseError {
-    EncodingError(EncodingError, TokenVec),
-    UnknownOpcode(TokenVec),
-    IncompleteInst(TokenVec, SmallVec<[Opcode; 16]>),
+    EncodingError(EncodingError, Vec<Token>),
+    UnknownOpcode(TokenSeq<Token>),
+    IncompleteInst(TokenSeq<Token>, SmallVec<[Opcode; 16]>),
     UnterminatedArg(Opcode, BitVec),
 }
 
@@ -67,7 +67,7 @@ impl<'a, L: Lexer> Parser<'a, L> {
                     Some(Ok(Token::T)) => bits.push(true),
                     Some(Ok(Token::L)) => break,
                     Some(Err(err)) => {
-                        let mut toks = TokenVec::from(opcode.tokens());
+                        let mut toks = Vec::from(opcode.tokens());
                         toks.append_bits(&bits);
                         self.partial = Some(PartialState::ParsingArg(opcode, bits));
                         return Err(ParseError::EncodingError(err, toks));
@@ -114,10 +114,8 @@ impl From<PrefixError<Token, Opcode>> for ParseError {
     fn from(err: PrefixError<Token, Opcode>) -> Self {
         match err {
             PrefixError::EncodingError(err, seq) => ParseError::EncodingError(err, seq.into()),
-            PrefixError::UnknownOpcode(seq) => ParseError::UnknownOpcode(seq.into()),
-            PrefixError::IncompleteOpcode(seq, prefix) => {
-                ParseError::IncompleteInst(seq.into(), prefix)
-            }
+            PrefixError::UnknownOpcode(seq) => ParseError::UnknownOpcode(seq),
+            PrefixError::IncompleteOpcode(seq, prefix) => ParseError::IncompleteInst(seq, prefix),
         }
     }
 }
