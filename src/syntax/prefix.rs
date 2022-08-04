@@ -154,13 +154,10 @@ where
     T: Debug + VariantIndex + 'static,
     O: Copy + Debug + Tokens<Token = T> + VariantIndex,
 {
-    #[must_use]
-    pub fn with_all(width: usize) -> Self {
-        let mut table = PrefixTable::with_dense_width(width);
+    pub fn insert_all(&mut self) {
         for opcode in O::iter() {
-            table.insert(opcode.tokens(), opcode).unwrap();
+            self.insert(opcode.tokens(), opcode).unwrap();
         }
-        table
     }
 }
 

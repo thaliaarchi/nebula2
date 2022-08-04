@@ -64,7 +64,11 @@ pub enum Inst {
 }
 
 /// Prefix table for parsing Ook! punctuation.
-pub static TABLE: LazyLock<PrefixTable<Punct, Inst>> = LazyLock::new(|| PrefixTable::with_all(2));
+pub static TABLE: LazyLock<PrefixTable<Punct, Inst>> = LazyLock::new(|| {
+    let mut table = PrefixTable::with_dense_width(2);
+    table.insert_all();
+    table
+});
 
 impl const Tokens for Inst {
     type Token = Punct;

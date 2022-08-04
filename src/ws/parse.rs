@@ -18,7 +18,11 @@ use crate::ws::inst::{Inst, InstArg, Opcode, RawInst};
 use crate::ws::token::{Lexer, Token, TokenVec};
 
 /// Prefix table for parsing Whitespace opcodes.
-pub static TABLE: LazyLock<PrefixTable<Token, Opcode>> = LazyLock::new(|| PrefixTable::with_all(3));
+pub static TABLE: LazyLock<PrefixTable<Token, Opcode>> = LazyLock::new(|| {
+    let mut table = PrefixTable::with_dense_width(3);
+    table.insert_all();
+    table
+});
 
 #[derive(Clone, Debug)]
 pub struct Parser<'a, L> {

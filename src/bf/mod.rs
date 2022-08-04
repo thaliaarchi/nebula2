@@ -11,6 +11,7 @@ use std::mem;
 use crate::syntax::VariantIndex;
 
 pub mod ook;
+pub mod spoon;
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
