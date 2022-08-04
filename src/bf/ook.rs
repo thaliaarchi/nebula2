@@ -63,8 +63,6 @@ pub enum Inst {
     Banana,
 }
 
-static_assertions::assert_eq_size!(Inst, Option<Inst>, u8);
-
 /// Prefix table for parsing Ook! punctuation.
 pub static TABLE: LazyLock<PrefixTable<Punct, Inst>> = LazyLock::new(|| PrefixTable::with_all(2));
 
@@ -110,18 +108,10 @@ impl const VariantIndex for Inst {
     const COUNT: u32 = 9;
     #[inline]
     fn variant(index: u32) -> Self {
-        if index != 8 {
-            Inst::Bf(bf::Inst::variant(index))
-        } else {
-            Inst::Banana
-        }
+        unsafe { mem::transmute(index as u8) }
     }
     #[inline]
     fn index(&self) -> u32 {
-        if let Inst::Bf(inst) = self {
-            inst.index()
-        } else {
-            8
-        }
+        unsafe { mem::transmute::<_, u8>(*self) as u32 }
     }
 }
