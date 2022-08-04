@@ -56,6 +56,7 @@ pub enum Token {
 
 impl Token {
     #[inline]
+    #[must_use]
     pub const fn as_ws_token(&self) -> Option<ws::Token> {
         match self {
             Token::G => Some(ws::Token::S),
@@ -77,6 +78,7 @@ pub struct Mapping {
 
 impl Mapping {
     #[inline]
+    #[must_use]
     pub const fn new(g: char, m: char, h: char, r: char, c: char) -> Option<Self> {
         if g == m
             || g == h
@@ -95,6 +97,7 @@ impl Mapping {
     }
 
     #[inline]
+    #[must_use]
     pub const fn map(&self, ch: char) -> Option<Token> {
         match ch {
             _ if ch == self.g => Some(Token::G),
@@ -107,6 +110,7 @@ impl Mapping {
     }
 
     #[inline]
+    #[must_use]
     pub const fn map_token(&self, tok: Token) -> char {
         match tok {
             Token::G => self.g,

@@ -58,7 +58,7 @@ use std::path::{Path, PathBuf};
 ///
 /// Labeled control flow instructions contain an L in the opcode and one
 /// terminating the label, so always span a full line. With the convention of
-/// representing textual labels using eight S/T tokens per byte and a
+/// representing textual labels using eight `S`/`T` tokens per byte and a
 /// pathological 2048-byte label (the identifier length limit in some C++
 /// compilers), that would be 16384 tokens for the label, plus three more for
 /// the opcode.
@@ -68,7 +68,7 @@ use std::path::{Path, PathBuf};
 /// more than a few tokens long.
 ///
 /// Comments are not similarly constrained and could be arbitrarily long, but
-/// should not occur more than a ratio of 10:1 with STL tokens, even in
+/// should not occur more than a ratio of 10:1 with `S`/`T`/`L` tokens, even in
 /// steganographic programs.
 ///
 /// ### File count limit
@@ -119,6 +119,7 @@ impl FileSet {
     }
 
     #[inline]
+    #[must_use]
     pub fn position(&self, pos: Position) -> FilePosition<'_> {
         FilePosition { file: &self[pos.file], pos }
     }
@@ -135,16 +136,19 @@ impl Index<FileId> for FileSet {
 
 impl File {
     #[inline]
+    #[must_use]
     pub const fn new(path: PathBuf, src: Vec<u8>) -> Self {
         File { path, src }
     }
 
     #[inline]
+    #[must_use]
     pub fn src(&self) -> &[u8] {
         self.src.as_slice()
     }
 
     #[inline]
+    #[must_use]
     pub fn path(&self) -> &Path {
         self.path.as_path()
     }

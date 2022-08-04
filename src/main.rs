@@ -68,7 +68,7 @@ fn main() {
 
 fn parse(program: ProgramOptions) -> Parser<'static, Box<dyn Lexer>> {
     let src = fs::read(&program.filename).unwrap();
-    let ext = program.filename.extension().map(OsStr::to_str).flatten();
+    let ext = program.filename.extension().and_then(OsStr::to_str);
     let lex: Box<dyn Lexer> = if ext == Some("wsx") {
         box bit_unpack_dynamic(&src, program.bit_order)
             .into_iter()

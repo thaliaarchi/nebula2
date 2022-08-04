@@ -20,6 +20,7 @@ pub struct Mapping<T> {
 
 impl<T: Eq> Mapping<T> {
     #[inline]
+    #[must_use]
     pub fn new(s: T, t: T, l: T) -> Option<Self> {
         if s == t || s == l || t == l {
             return None;
@@ -28,6 +29,7 @@ impl<T: Eq> Mapping<T> {
     }
 
     #[inline]
+    #[must_use]
     pub fn map(&self, v: &T) -> Option<Token> {
         match v {
             _ if v == &self.s => Some(Token::S),
@@ -38,6 +40,7 @@ impl<T: Eq> Mapping<T> {
     }
 
     #[inline]
+    #[must_use]
     pub const fn map_token(&self, tok: Token) -> &T {
         match tok {
             Token::S => &self.s,
@@ -77,6 +80,7 @@ pub struct MappingLexer<I, T> {
 
 impl<I, T> MappingLexer<I, T> {
     #[inline]
+    #[must_use]
     pub const fn new(iter: I, map: Mapping<T>) -> Self {
         MappingLexer { iter, map }
     }
@@ -84,6 +88,7 @@ impl<I, T> MappingLexer<I, T> {
 
 impl<'a> MappingLexer<Utf8Iterator<'a>, char> {
     #[inline]
+    #[must_use]
     pub const fn new_utf8<B>(src: &'a B, map: Mapping<char>, error_once: bool) -> Self
     where
         B: ~const AsRef<[u8]> + ?Sized,
@@ -94,6 +99,7 @@ impl<'a> MappingLexer<Utf8Iterator<'a>, char> {
 
 impl<'a> MappingLexer<ByteIterator<'a>, u8> {
     #[inline]
+    #[must_use]
     pub const fn new_bytes<B>(src: &'a B, map: Mapping<u8>) -> Self
     where
         B: ~const AsRef<[u8]> + ?Sized,
@@ -139,6 +145,7 @@ pub struct BytesMapping {
 }
 
 impl BytesMapping {
+    #[must_use]
     pub fn new(s: Vec<u8>, t: Vec<u8>, l: Vec<u8>) -> Option<Self> {
         if Self::is_prefix(&s, &t) || Self::is_prefix(&s, &l) || Self::is_prefix(&t, &l) {
             return None;
@@ -152,6 +159,7 @@ impl BytesMapping {
     }
 
     #[inline]
+    #[must_use]
     pub fn map(&self, v: &[u8]) -> Option<(Token, usize)> {
         match v {
             _ if v.starts_with(&self.s) => Some((Token::S, self.s.len())),
@@ -162,6 +170,7 @@ impl BytesMapping {
     }
 
     #[inline]
+    #[must_use]
     pub fn map_token(&self, tok: Token) -> &[u8] {
         match tok {
             Token::S => &self.s,
@@ -180,6 +189,7 @@ pub struct BytesMappingLexer<'a> {
 
 impl<'a> BytesMappingLexer<'a> {
     #[inline]
+    #[must_use]
     pub const fn new<B>(src: &'a B, map: BytesMapping) -> Self
     where
         B: ~const AsRef<[u8]> + ?Sized,
@@ -209,6 +219,7 @@ impl Iterator for BytesMappingLexer<'_> {
 
 impl const FusedIterator for BytesMappingLexer<'_> {}
 
+#[must_use]
 pub fn lex_mapping<'a>(
     src: &'a [u8],
     s: Vec<u8>,

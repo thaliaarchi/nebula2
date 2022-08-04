@@ -52,6 +52,7 @@ use crate::ws::token::Token;
 /// [Respace]: https://github.com/andrewarchi/respace/blob/master/src/binary.h
 /// [Nebula]: https://github.com/andrewarchi/nebula/blob/master/ws/pack.go
 /// [yspace]: https://github.com/andrewarchi/yspace/blob/main/src/bit_pack.rs
+#[must_use]
 pub fn bit_pack<T: BitStore, O: BitOrder>(toks: &[Token]) -> BitVec<T, O> {
     // TODO: Survey programs to find better size ratio estimate.
     let mut bits = BitVec::with_capacity(toks.len() * 2);
@@ -76,6 +77,7 @@ pub fn bit_pack<T: BitStore, O: BitOrder>(toks: &[Token]) -> BitVec<T, O> {
 /// If the last bit is an unpaired `1` bit, it is ignored.
 ///
 /// See [`bit_pack`] for a description of the encoding.
+#[must_use]
 pub fn bit_unpack<T: BitStore, O: BitOrder>(bits: &BitSlice<T, O>) -> Vec<Token> {
     // TODO: Survey programs to find better size ratio estimate.
     // TODO: Use TokenVec here, once it can extend its capacity.
@@ -98,6 +100,7 @@ pub fn bit_unpack<T: BitStore, O: BitOrder>(bits: &BitSlice<T, O>) -> Vec<Token>
 /// Packs tokens into a compact bitwise encoding, padded with trailing bits.
 ///
 /// See [`bit_pack`] for a description of the encoding.
+#[must_use]
 pub fn bit_pack_padded<T: BitStore, O: BitOrder>(toks: &[Token]) -> Vec<T> {
     let mut bits = bit_pack::<T, O>(toks);
     // Follow a final `0` bit with a marker `1` bit to avoid ambiguity.
@@ -111,6 +114,7 @@ pub fn bit_pack_padded<T: BitStore, O: BitOrder>(toks: &[Token]) -> Vec<T> {
 /// Unpacks tokens from a compact bitwise encoding, padded with trailing bits.
 ///
 /// See [`bit_pack`] for a description of the encoding.
+#[must_use]
 pub fn bit_unpack_padded<T: BitStore, O: BitOrder>(bits: &[T]) -> Vec<Token> {
     let mut bits = BitSlice::<T, O>::from_slice(bits);
     // Trim trailing zeros in the last element.
@@ -145,6 +149,7 @@ pub enum BitOrderDynamic {
 /// Packs tokens into a compact bitwise encoding with a dynamic bit order.
 ///
 /// See [`bit_pack`] for a description of the encoding.
+#[must_use]
 pub fn bit_pack_dynamic(toks: &[Token], order: BitOrderDynamic) -> Vec<u8> {
     match order {
         BitOrderDynamic::Lsb0 => bit_pack_padded::<u8, Lsb0>(toks),
@@ -156,6 +161,7 @@ pub fn bit_pack_dynamic(toks: &[Token], order: BitOrderDynamic) -> Vec<u8> {
 /// padded input.
 ///
 /// See [`bit_pack`] for a description of the encoding.
+#[must_use]
 pub fn bit_unpack_dynamic(bits: &[u8], order: BitOrderDynamic) -> Vec<Token> {
     match order {
         BitOrderDynamic::Lsb0 => bit_unpack_padded::<u8, Lsb0>(bits),

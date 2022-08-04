@@ -34,7 +34,13 @@
     split_array,
     trait_alias
 )]
-#![deny(clippy::pedantic)]
+#![warn(clippy::pedantic)]
+#![allow(
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::enum_glob_use,
+    clippy::module_name_repetitions
+)]
 
 pub mod bf;
 pub mod syntax;

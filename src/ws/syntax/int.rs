@@ -7,7 +7,7 @@
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
 use std::fmt::{self, Display, Formatter};
-use std::intrinsics::unlikely;
+use std::intrinsics;
 use std::ops::{Deref, DerefMut};
 use std::str;
 
@@ -178,7 +178,7 @@ impl IntLiteral {
         for i in offset..b.len() {
             let ch = b[i];
             let digit = table[ch as usize];
-            if unlikely(digit as u32 >= radix) {
+            if intrinsics::unlikely(digit as u32 >= radix) {
                 if ch == b'_' {
                     continue;
                 }
@@ -197,7 +197,7 @@ impl IntLiteral {
         } else {
             0
         };
-        let int = convert::integer_from_digits_radix(digits, sign, radix);
+        let int = convert::integer_from_digits_radix(&digits, sign, radix);
         let bits = convert::signed_bits_from_integer(&int, sign, leading_zeros);
         // SAFETY: The syntax only allows for ASCII characters
         let string = Some(unsafe { str::from_utf8_unchecked(b) }.into());
@@ -205,6 +205,7 @@ impl IntLiteral {
     }
 
     #[inline]
+    #[must_use]
     pub fn sign(&self) -> Sign {
         match self.bits.first().as_deref() {
             Some(true) => Sign::Neg,
@@ -221,7 +222,8 @@ const X: u8 = 0xff;
 /// second part (208..=464) is for radices 37..=62 that use the case-sensitive
 /// alphabet 0-9A-Za-z.
 ///
-/// Copied from __gmp_digit_value_tab in gmp-6.2.1/mp_dv_tab.c
+/// Copied from GMP 6.2.1 `__gmp_digit_value_tab` in
+/// [`mp_dv_tab.c`](https://gmplib.org/repo/gmp/file/tip/mp_dv_tab.c).
 #[rustfmt::skip]
 static RADIX_DIGIT_VALUES: [u8; 464] = [
     X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X,

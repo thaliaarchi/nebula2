@@ -45,6 +45,7 @@ where
     O: Copy,
 {
     #[inline]
+    #[must_use]
     pub fn new(dense_len: usize) -> Self {
         PrefixTable {
             dense: vec![None; dense_len].into_boxed_slice(),
@@ -53,20 +54,23 @@ where
     }
 
     #[inline]
+    #[must_use]
     pub fn with_dense_width(width: usize) -> Self {
         Self::new(TokenSeq::<T>::size_for(width))
     }
 
     #[inline]
+    #[must_use]
     pub fn get(&self, seq: TokenSeq<T>) -> Option<&PrefixEntry<O>> {
         if seq.as_usize() < self.dense.len() {
             self.dense[seq.as_usize()].as_ref()
         } else {
-            self.sparse.get(&seq).map(Option::as_ref).flatten()
+            self.sparse.get(&seq).and_then(Option::as_ref)
         }
     }
 
     #[inline]
+    #[must_use]
     pub fn get_mut(&mut self, seq: TokenSeq<T>) -> &mut Option<PrefixEntry<O>> {
         if seq.as_usize() < self.dense.len() {
             &mut self.dense[seq.as_usize()]
@@ -103,6 +107,8 @@ where
         Ok(())
     }
 
+    #[inline]
+    #[must_use]
     pub fn parse<L>(&self, lex: &mut L) -> Option<Result<O, PrefixError<T, O>>>
     where
         L: Iterator<Item = Result<T, EncodingError>>,
@@ -110,6 +116,7 @@ where
         self.parse_at(lex, TokenSeq::new())
     }
 
+    #[must_use]
     pub fn parse_at<L>(
         &self,
         lex: &mut L,
@@ -147,6 +154,7 @@ where
     T: Debug + VariantIndex + 'static,
     O: Copy + Debug + Tokens<Token = T> + VariantIndex,
 {
+    #[must_use]
     pub fn with_all(width: usize) -> Self {
         let mut table = PrefixTable::with_dense_width(width);
         for opcode in O::iter() {
@@ -193,6 +201,8 @@ where
 }
 
 impl<T: VariantIndex, O> ConflictError<T, O> {
+    #[inline]
+    #[must_use]
     const fn new(prefix: TokenSeq<T>, opcodes: SmallVec<[O; 16]>) -> Self {
         ConflictError { prefix, opcodes }
     }
@@ -201,6 +211,7 @@ impl<T: VariantIndex, O> ConflictError<T, O> {
 pub trait Tokens {
     type Token;
 
+    #[must_use]
     fn tokens(&self) -> &'static [Self::Token];
 }
 

@@ -11,33 +11,34 @@
 //! To convert between Rug and `bitvec` types, the bit order, endianness, and
 //! limb size need to correspond:
 //!
-//! In the GMP `mpz_import` function, which Rug calls in `Integer::from_digits`,
-//! it copies the input data to its internal format, which appears to be `Lsf`.
-//! If the input order is `Lsf*` and the endianness matches the host, the data
-//! is simply copied. If the endianness does not match the host, it swaps the
-//! bytes. If the input order is `Msf*`, the bits are reversed.
+//! In the GMP `mpz_import` function, which Rug calls in
+//! [`Integer::from_digits`], it converts the input data to its internal format,
+//! which is [`Lsf`](Order::Lsf). If the input order is `Lsf*` and the
+//! endianness matches the host, the data is simply copied. If the input
+//! endianness does not match the host, the bytes are swapped. If the input
+//! order is `Msf*`, the bits are reversed.
 //!
-//! `bitvec` strongly recommends using `Lsb0` as the `BitOrder`, even if it
+//! `bitvec` strongly recommends using [`Lsb0`] as the [`BitOrder`], even if it
 //! doesn't match the host endianness, because it provides the best codegen for
 //! bit manipulation. Since there is no equivalent to `Lsf` in `bitvec` and
 //! big-endian systems are rare, `LsfLe`/`Lsb0` is the best option.
 //!
-//! Whitespace integers are big endian, but are parsed and pushed to a `BitVec`
-//! in little-endian order, so the slice of bits needs to be reversed (i.e., not
-//! reversing or swapping words) before converting to an `Integer`.
+//! Whitespace integers are big endian, but are parsed and pushed to a
+//! [`BitVec`] in little-endian order, so the slice of bits needs to be reversed
+//! (i.e., not reversing or swapping words) before converting to an [`Integer`].
 //!
 //! GMP uses a machine word as the limb size and `bitvec` uses `usize` as the
-//! default `BitStore`.
+//! default [`BitStore`].
 //!
-//! | Rug   | bitvec    | Bit order                   | Endianness      |
-//! | ----- | --------- | --------------------------- | --------------- |
-//! | Lsf   |           | least-significant bit first | host endianness |
-//! | LsfLe | Lsb0      | least-significant bit first | little-endian   |
-//! | LsfBe |           | least-significant bit first | big-endian      |
-//! | Msf   |           | most-significant bit first  | host endianness |
-//! | MsfLe |           | most-significant bit first  | little-endian   |
-//! | MsfBe | Msb0      | most-significant bit first  | big-endian      |
-//! |       | LocalBits | alias to Lsb0 or Msb0       | host endianness |
+//! | Rug     | bitvec      | Bit order                   | Endianness      |
+//! | ------- | ----------- | --------------------------- | --------------- |
+//! | `Lsf`   |             | least-significant bit first | host endianness |
+//! | `LsfLe` | `Lsb0`      | least-significant bit first | little-endian   |
+//! | `LsfBe` |             | least-significant bit first | big-endian      |
+//! | `Msf`   |             | most-significant bit first  | host endianness |
+//! | `MsfLe` |             | most-significant bit first  | little-endian   |
+//! | `MsfBe` | `Msb0`      | most-significant bit first  | big-endian      |
+//! |         | `LocalBits` | alias to Lsb0 or Msb0       | host endianness |
 
 use std::cmp::Ordering;
 
@@ -54,10 +55,11 @@ use crate::ws::syntax::Sign;
 /// `<rug::integer::ParseIncomplete as rug::Assign>::assign`
 /// and `rug::ext::xmpz::realloc_for_mpn_set_str`.
 ///
-/// Compensates for Rug missing a higher-level API for using `mpn_set_str`:
-/// https://gitlab.com/tspiteri/rug/-/issues/41
-pub fn integer_from_digits_radix(digits: Vec<u8>, sign: Sign, radix: u32) -> Integer {
-    if digits.len() == 0 {
+/// Compensates for Rug missing a higher-level API for using `mpn_set_str`
+/// ([issue 41](https://gitlab.com/tspiteri/rug/-/issues/41]).
+#[must_use]
+pub fn integer_from_digits_radix(digits: &Vec<u8>, sign: Sign, radix: u32) -> Integer {
+    if digits.is_empty() {
         return Integer::ZERO;
     }
     let mut int = Integer::new();
@@ -83,12 +85,13 @@ pub fn integer_from_digits_radix(digits: Vec<u8>, sign: Sign, radix: u32) -> Int
     int
 }
 
+#[must_use]
 pub fn integer_from_signed_bits(bits: &BitSlice) -> Integer {
     match bits.split_first() {
         None => Integer::ZERO,
         Some((sign, bits)) => {
             let mut int = integer_from_unsigned_bits(bits);
-            if *sign == true {
+            if *sign {
                 int.neg_assign();
             }
             int
@@ -96,6 +99,7 @@ pub fn integer_from_signed_bits(bits: &BitSlice) -> Integer {
     }
 }
 
+#[must_use]
 pub fn integer_from_unsigned_bits(bits: &BitSlice) -> Integer {
     let len = bits.len();
     if len < usize::BITS as usize * 4 {
@@ -114,6 +118,7 @@ pub fn integer_from_unsigned_bits(bits: &BitSlice) -> Integer {
 }
 
 #[inline]
+#[must_use]
 pub fn integer_from_unsigned_bits_unambiguous(bits: &BitSlice) -> Option<Integer> {
     if bits.first().as_deref() == Some(&true) {
         Some(integer_from_unsigned_bits(bits))
@@ -122,6 +127,7 @@ pub fn integer_from_unsigned_bits_unambiguous(bits: &BitSlice) -> Option<Integer
     }
 }
 
+#[must_use]
 pub fn unsigned_bits_from_integer(int: &Integer) -> BitVec {
     let mut bits = BitVec::<usize, Lsb0>::from_vec(int.to_digits(Order::LsfLe));
     bits.truncate(bits.last_one().map_or(0, |i| i + 1));
@@ -129,6 +135,7 @@ pub fn unsigned_bits_from_integer(int: &Integer) -> BitVec {
     bits
 }
 
+#[must_use]
 pub fn signed_bits_from_integer(int: &Integer, sign: Sign, leading_zeros: usize) -> BitVec {
     let mut bits;
     if int.cmp0() == Ordering::Equal {

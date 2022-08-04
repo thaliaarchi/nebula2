@@ -51,11 +51,13 @@ impl<T: VariantIndex> TokenSeq<T> {
     pub const MAX: TokenSeq<T> = TokenSeq::from(u32::MAX);
 
     #[inline]
+    #[must_use]
     pub const fn new() -> Self {
         TokenSeq { inner: 0, elem: PhantomData }
     }
 
     #[inline]
+    #[must_use]
     pub const fn size_for(width: usize) -> usize {
         let mut i = width;
         let mut max = 0;
@@ -83,6 +85,7 @@ impl<T: VariantIndex> TokenSeq<T> {
     }
 
     #[inline]
+    #[must_use]
     pub const fn len(&self) -> u32 {
         let mut seq = self.inner;
         let mut len = 0;
@@ -94,11 +97,13 @@ impl<T: VariantIndex> TokenSeq<T> {
     }
 
     #[inline]
+    #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.inner == 0
     }
 
     #[inline]
+    #[must_use]
     pub const fn as_usize(&self) -> usize {
         self.inner as usize
     }

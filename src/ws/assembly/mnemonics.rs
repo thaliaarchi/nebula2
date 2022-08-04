@@ -37,7 +37,7 @@ macro_rules! mnemonics_map {
     }};
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MnemonicMap {
     mnemonics: HashMap<CompactString, Opcode>,
 }
@@ -51,8 +51,9 @@ pub struct MnemonicError {
 
 impl MnemonicMap {
     #[inline]
+    #[must_use]
     pub fn new() -> Self {
-        MnemonicMap { mnemonics: HashMap::new() }
+        MnemonicMap::default()
     }
 
     pub fn insert_compact(
@@ -101,6 +102,8 @@ impl MnemonicMap {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)]
+    #[must_use]
     pub fn with_permissive() -> Self {
         mnemonics_map! {
             Push: [

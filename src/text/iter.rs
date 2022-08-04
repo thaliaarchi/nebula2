@@ -26,6 +26,7 @@ pub struct Utf8Iterator<'a> {
 
 impl<'a> Utf8Iterator<'a> {
     #[inline]
+    #[must_use]
     pub const fn new<B>(src: &'a B, error_once: bool) -> Self
     where
         B: ~const AsRef<[u8]> + ?Sized,
@@ -39,11 +40,13 @@ impl<'a> Utf8Iterator<'a> {
     }
 
     #[inline]
+    #[must_use]
     pub const fn offset(&self) -> usize {
         self.offset
     }
 
     #[inline]
+    #[must_use]
     pub const fn valid_to(&self) -> usize {
         match self.valid_to {
             Some(valid_to) => valid_to,
@@ -88,11 +91,13 @@ pub struct ByteIterator<'a> {
 
 impl<'a> ByteIterator<'a> {
     #[inline]
+    #[must_use]
     pub const fn new<B: ~const AsRef<[u8]> + ?Sized>(src: &'a B) -> Self {
         ByteIterator { src: src.as_ref(), offset: 0 }
     }
 
     #[inline]
+    #[must_use]
     pub const fn offset(&self) -> usize {
         self.offset
     }

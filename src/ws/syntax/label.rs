@@ -77,6 +77,7 @@ pub struct LabelLiteral {
 
 impl LabelLiteral {
     #[inline]
+    #[must_use]
     pub fn from_bits(bits: BitVec) -> Self {
         let uint = convert::integer_from_unsigned_bits_unambiguous(&bits);
         LabelLiteral { bits, uint, name: None }
@@ -111,6 +112,7 @@ pub struct LabelData {
 
 impl LabelData {
     #[inline]
+    #[must_use]
     pub fn new(id: LabelId, bits: BitVec) -> Self {
         let uint = convert::integer_from_unsigned_bits_unambiguous(&bits);
         LabelData {
@@ -143,7 +145,7 @@ impl LabelData {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct LabelResolver {
     labels: Vec<LabelData>,
     bits_map: HashMap<BitVec, LabelId>,
@@ -172,13 +174,12 @@ pub enum LabelDupes {
 
 impl LabelResolver {
     #[inline]
+    #[must_use]
     pub fn new() -> Self {
-        LabelResolver {
-            labels: Vec::new(),
-            bits_map: HashMap::new(),
-        }
+        LabelResolver::default()
     }
 
+    #[must_use]
     pub fn resolve_all(&mut self, insts: Vec<RawInst>, order: LabelOrder) -> Vec<ProgramInst> {
         match order {
             LabelOrder::Def => {
@@ -231,6 +232,7 @@ impl LabelResolver {
         }
     }
 
+    #[must_use]
     pub fn resolve(&mut self, inst: RawInst, id: InstId) -> ProgramInst {
         inst.map_arg(|opcode, arg| -> Result<_, InstError> {
             match arg {

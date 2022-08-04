@@ -12,6 +12,7 @@ use crate::syntax::TokenSeq;
 use crate::ws::token::Token;
 
 pub trait TokenVec {
+    #[must_use]
     fn from_bits<T: BitStore, O: BitOrder>(bits: &BitSlice<T, O>) -> Self;
     fn append_bits<T: BitStore, O: BitOrder>(&mut self, bits: &BitSlice<T, O>);
 }

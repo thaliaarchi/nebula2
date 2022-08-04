@@ -27,7 +27,7 @@ pub enum InstError {
 
 pub type Features = EnumSet<Feature>;
 
-#[derive(Debug, Hash)]
+#[derive(Debug)]
 #[derive(Display, EnumSetType)]
 #[strum(serialize_all = "snake_case")]
 pub enum Feature {
@@ -62,6 +62,7 @@ macro_rules! insts {
 
         impl<I, L> Inst<I, L> {
             #[inline]
+            #[must_use]
             pub const fn opcode(&self) -> Opcode {
                 match self {
                     $(Inst::$opcode $((map!($arg, _)))? => Opcode::$opcode),+,
@@ -94,6 +95,7 @@ macro_rules! insts {
 
         impl Opcode {
             #[inline]
+            #[must_use]
             pub const fn feature(&self) -> Option<Feature> {
                 match self {
                     $(Opcode::$opcode => {
@@ -144,6 +146,7 @@ pub enum InstArg<I, L> {
 }
 
 impl<I1, L1> Inst<I1, L1> {
+    #[must_use]
     pub fn map_arg<I2, L2, E, F>(self, f: F) -> Inst<I2, L2>
     where
         E: Into<InstError>,

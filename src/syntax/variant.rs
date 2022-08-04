@@ -13,9 +13,13 @@ use std::marker::PhantomData;
 pub trait VariantIndex {
     const COUNT: u32;
 
+    #[must_use]
     fn variant(index: u32) -> Self;
+
+    #[must_use]
     fn index(&self) -> u32;
 
+    #[must_use]
     fn iter() -> VariantIter<Self>
     where
         Self: Sized,

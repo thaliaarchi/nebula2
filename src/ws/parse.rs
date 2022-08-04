@@ -43,9 +43,10 @@ enum PartialState {
 
 impl<L: Lexer> Parser<'static, L> {
     #[inline]
+    #[must_use]
     pub fn new(lex: L) -> Self {
         Parser {
-            table: &*TABLE,
+            table: &TABLE,
             lex,
             partial: None,
         }
@@ -54,6 +55,7 @@ impl<L: Lexer> Parser<'static, L> {
 
 impl<'a, L: Lexer> Parser<'a, L> {
     #[inline]
+    #[must_use]
     pub fn with_table(table: &'a PrefixTable<Token, Opcode>, lex: L) -> Self {
         Parser { table, lex, partial: None }
     }
@@ -97,12 +99,12 @@ impl<L: Lexer> Iterator for Parser<'_, L> {
             None => TokenSeq::new(),
         };
         match self.table.parse_at(&mut self.lex, partial_seq)? {
-            Ok(opcode) => return Some(self.parse_arg(opcode, None)),
+            Ok(opcode) => Some(self.parse_arg(opcode, None)),
             Err(err) => {
                 if let PrefixError::EncodingError(_, seq) = err {
                     self.partial = Some(PartialState::ParsingOpcode(seq));
                 }
-                return Some(Inst::from(ParseError::from(err)));
+                Some(Inst::from(ParseError::from(err)))
             }
         }
     }
