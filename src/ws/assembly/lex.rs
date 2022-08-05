@@ -35,7 +35,10 @@ pub enum TokenKind {
 
     Word,
     /// Integer literal
-    Int,
+    Int {
+        base: Base,
+        has_digits: bool,
+    },
     /// String literal (`"…"`)
     String,
     /// Character literal (`'…'`)
@@ -77,6 +80,17 @@ pub enum BlockCommentStyle {
     Paren,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Base {
+    Decimal,
+    /// `0b` prefix
+    Binary,
+    /// `0o` prefix
+    Octal,
+    /// `0x` prefix
+    Hexadecimal,
+}
+
 impl Cursor<'_> {
     /// Scans a token from the input string.
     fn advance_token(&mut self) -> Token {
@@ -97,26 +111,70 @@ impl Cursor<'_> {
             ';' => self.line_comment1(';', LineCommentStyle::Semi),
 
             // Literals
-            '+' | '-' | '0'..='9' => self.int_or_word(),
+            '+' | '-' => self.signed_int_or_word(),
+            '0'..='9' => self.unsigned_int(first_char),
             '"' => self.string(),
             '\'' => self.char(),
 
             ':' => Colon,
             '\n' => Lf,
+
             c if c.is_whitespace() => self.whitespace(),
-            _ => Unknown,
+            c if c.is_control() => Unknown,
+            _ => self.word(),
         };
         Token::new(token_kind, self.len_consumed())
     }
 
     #[inline]
     fn word(&mut self) -> TokenKind {
+        debug_assert!(!self.prev().is_whitespace() && !self.prev().is_control());
+        self.eat_while(|c| !c.is_whitespace() && c != ':' && !c.is_control());
+        Word
+    }
+
+    #[inline]
+    fn signed_int_or_word(&mut self) -> TokenKind {
+        debug_assert!(matches!(self.prev(), '+' | '-'));
         todo!()
     }
 
     #[inline]
-    fn int_or_word(&mut self) -> TokenKind {
-        todo!()
+    fn unsigned_int(&mut self, first_digit: char) -> TokenKind {
+        debug_assert!(matches!(self.prev(), '0'..='9'));
+        let mut base = Base::Decimal;
+        let has_digits = if first_digit == '0' {
+            // Attempt to parse encoding base.
+            match self.first() {
+                'b' => {
+                    base = Base::Binary;
+                    self.bump();
+                    self.eat_decimal_digits()
+                }
+                'o' => {
+                    base = Base::Octal;
+                    self.bump();
+                    self.eat_decimal_digits()
+                }
+                'x' => {
+                    base = Base::Hexadecimal;
+                    self.bump();
+                    self.eat_hexadecimal_digits()
+                }
+                // Not a base prefix.
+                '0'..='9' | '_' => {
+                    self.eat_decimal_digits();
+                    true
+                }
+                // Just a `0`.
+                _ => true,
+            }
+        } else {
+            // No base prefix; parse number in the usual way.
+            self.eat_decimal_digits();
+            true
+        };
+        Int { base, has_digits }
     }
 
     #[inline]
@@ -213,9 +271,38 @@ impl Cursor<'_> {
         BlockComment { style, terminated: depth == 0 }
     }
 
+    #[inline]
     fn whitespace(&mut self) -> TokenKind {
         debug_assert!(self.prev().is_whitespace());
         self.eat_while(char::is_whitespace);
         Whitespace
+    }
+
+    #[inline]
+    fn eat_decimal_digits(&mut self) -> bool {
+        let mut has_digits = false;
+        loop {
+            match self.first() {
+                '0'..='9' => has_digits = true,
+                '_' => {}
+                _ => break,
+            }
+            self.bump();
+        }
+        has_digits
+    }
+
+    #[inline]
+    fn eat_hexadecimal_digits(&mut self) -> bool {
+        let mut has_digits = false;
+        loop {
+            match self.first() {
+                '_' => {}
+                '0'..='9' | 'a'..='f' | 'A'..='F' => has_digits = true,
+                _ => break,
+            }
+            self.bump();
+        }
+        has_digits
     }
 }
