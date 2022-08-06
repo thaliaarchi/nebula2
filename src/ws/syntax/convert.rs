@@ -43,47 +43,9 @@
 use std::cmp::Ordering;
 
 use bitvec::prelude::*;
-use gmp_mpfr_sys::gmp;
 use rug::{integer::Order, ops::NegAssign, Integer};
 
 use crate::ws::syntax::Sign;
-
-/// Constructs an Integer from a Vec of digits, where each digit is in the range
-/// 0..radix, i.e., not ASCII characters.
-///
-/// Adapted from Rug internal functions:
-/// `<rug::integer::ParseIncomplete as rug::Assign>::assign`
-/// and `rug::ext::xmpz::realloc_for_mpn_set_str`.
-///
-/// Compensates for Rug missing a higher-level API for using `mpn_set_str`
-/// ([issue 41](https://gitlab.com/tspiteri/rug/-/issues/41]).
-#[must_use]
-pub fn integer_from_digits_radix(digits: &Vec<u8>, sign: Sign, radix: u32) -> Integer {
-    if digits.is_empty() {
-        return Integer::ZERO;
-    }
-    let mut int = Integer::new();
-    let raw = int.as_raw_mut();
-
-    // Add 1 to make the floored integer log be ceiling
-    let bits = (radix.log2() as usize + 1) * digits.len();
-    // Use integer ceiling division
-    let limb_bits = gmp::LIMB_BITS as usize;
-    let limbs = (bits + limb_bits - 1) / limb_bits;
-    unsafe {
-        // Add 1, because `mpn_set_str` requires an extra limb
-        gmp::_mpz_realloc(raw, limbs as gmp::size_t + 1);
-
-        let size = gmp::mpn_set_str(
-            (*raw).d.as_ptr(),
-            digits.as_ptr(),
-            digits.len(),
-            radix as i32,
-        );
-        (*raw).size = if sign == Sign::Neg { -size } else { size } as i32;
-    }
-    int
-}
 
 #[must_use]
 pub fn integer_from_signed_bits(bits: &BitSlice) -> Integer {

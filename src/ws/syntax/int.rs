@@ -197,7 +197,15 @@ impl IntLiteral {
         } else {
             0
         };
-        let int = convert::integer_from_digits_radix(&digits, sign, radix);
+
+        let mut int = Integer::new();
+        if !digits.is_empty() {
+            // SAFETY: Digits have been verified to be in range for radix.
+            unsafe {
+                int.assign_bytes_radix_unchecked(&digits, radix as i32, sign == Sign::Neg);
+            }
+        }
+
         let bits = convert::signed_bits_from_integer(&int, sign, leading_zeros);
         // SAFETY: The syntax only allows for ASCII characters
         let string = Some(unsafe { str::from_utf8_unchecked(b) }.into());
