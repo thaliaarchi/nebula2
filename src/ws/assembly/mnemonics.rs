@@ -123,6 +123,7 @@ impl MnemonicMap {
                 copy,
                 copyn, copynth, copyat,
                 dupn, dupnth, dupat,
+                duplicaten, duplicatenth, duplicateat,
                 pick,
                 ref,
                 take,
@@ -152,6 +153,7 @@ impl MnemonicMap {
                 addition,
                 adding,
                 plus,
+                sum,
                 "+",
             ],
             Sub: [
