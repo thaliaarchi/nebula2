@@ -1,13 +1,13 @@
 [package]
 name = "nebula2"
 version = "0.1.0"
-authors = ["Andrew Archibald <andrew@aarchibald.com>"]
+authors = ["Thalia Archibald <thalia@archibald.dev>"]
 edition = "2021"
 rust-version = "1.62"
 description = "Toolchain for the Whitespace programming language"
 readme = "README.md"
-homepage = "https://github.com/andrewarchi/nebula2"
-repository = "https://github.com/andrewarchi/nebula2"
+homepage = "https://github.com/thaliaarchi/nebula2"
+repository = "https://github.com/thaliaarchi/nebula2"
 license = "LGPL-3.0-or-later"
 keywords = ["whitespace", "compiler"]
 categories = ["compilers"]

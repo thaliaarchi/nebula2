@@ -29,7 +29,7 @@ server.
 
 I intend to use incremental computation via [Salsa](https://github.com/salsa-rs/salsa),
 as [used](https://rustc-dev-guide.rust-lang.org/salsa.html) by rust-analyzer, or
-[Adapton](https://github.com/Adapton/adapton.rust) ([notes](https://github.com/andrewarchi/compiler-notes/tree/main/adapton)),
+[Adapton](https://github.com/Adapton/adapton.rust) ([notes](https://github.com/thaliaarchi/notes/tree/main/topics/adapton)),
 once I have a complete pipeline.
 
 It takes inspiration from many projects and concepts: MLIR for dialect mixing
@@ -57,7 +57,7 @@ flow, I could eventually use LLVM IR as both a back end and a front end.
 
 ## Other projects
 
-Nebula 2 is the successor to [Nebula](https://github.com/andrewarchi/nebula),
+Nebula 2 is the successor to [Nebula](https://github.com/thaliaarchi/nebula),
 an optimizing Whitespace compiler, written in Go, that uses static
 single-assignment form for its own intermediate representation and lowers to
 LLVM IR.
@@ -68,7 +68,7 @@ implementation.
 
 ## License
 
-Nebula 2 is released by Andrew Archibald under the terms of the
+Nebula 2 is released by Thalia Archibald under the terms of the
 [GNU Lesser General Public License](https://www.gnu.org/licenses/lgpl-3.0.html),
 version 3 or later. This license makes the it free to use, share, and improve,
 with the requirement that any alterations or improvements to Nebula 2 also must

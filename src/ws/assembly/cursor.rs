@@ -1,4 +1,4 @@
-// Copyright (C) 2022 Andrew Archibald
+// Copyright (C) 2022 Thalia Archibald
 // Copyright (C) 2019-2021 The Rust Project Developers
 //
 // Nebula 2 is free software: you can redistribute it and/or modify it under the
