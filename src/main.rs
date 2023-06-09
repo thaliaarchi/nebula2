@@ -19,7 +19,7 @@ use nebula2::ws::{
 };
 
 #[derive(Debug, CliParser)]
-#[clap(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None)]
 struct Cli {
     #[clap(subcommand)]
     command: Command,
@@ -37,22 +37,22 @@ enum Command {
 #[derive(Debug, Args)]
 struct ProgramOptions {
     /// Path to Whitespace program
-    #[clap(required = true, value_parser)]
+    #[arg(required = true)]
     filename: PathBuf,
     /// Disable UTF-8 validation
-    #[clap(long, value_parser, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     ascii: bool,
     /// Set the bit order for bit packing
-    #[clap(long, value_parser, default_value_t = BitOrderDynamic::Msb0)]
+    #[arg(long, default_value_t = BitOrderDynamic::Msb0)]
     bit_order: BitOrderDynamic,
     /// Set the mapping for S
-    #[clap(long, value_parser)]
+    #[arg(long)]
     mapping_s: Option<String>,
     /// Set the mapping for T
-    #[clap(long, value_parser)]
+    #[arg(long)]
     mapping_t: Option<String>,
     /// Set the mapping for L
-    #[clap(long, value_parser)]
+    #[arg(long)]
     mapping_l: Option<String>,
 }
 

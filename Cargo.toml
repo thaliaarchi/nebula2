@@ -13,17 +13,17 @@ keywords = ["whitespace", "compiler"]
 categories = ["compilers"]
 
 [dependencies]
-arrayvec = "0.7.2"
-bitvec = "1.0.1"
-bstr = "0.2.17"
-clap = { version = "3.2.16", features = ["deprecated", "derive", "regex", "unicode", "unstable-grouped", "unstable-replace", "unstable-v4", "wrap_help"] }
-compact_str = "0.5.2"
-enumset = { version = "1.0.11", features = ["std"] }
-paste = "1.0.8"
-rug = { version = "1.16.0", git = "https://gitlab.com/tspiteri/rug.git", default-features = false, features = ["integer", "num-traits"] }
-smallvec = { version = "1.9.0", features = ["const_generics", "const_new", "may_dangle", "specialization", "union", "write"] }
-static_assertions = "1.1.0"
-strum = { version = "0.24.1", features = ["derive"] }
+arrayvec = "0.7"
+bitvec = "1.0"
+bstr = "1.5"
+clap = { version = "4.3", features = ["deprecated", "derive", "unicode", "wrap_help"] }
+compact_str = "0.7"
+enumset = { version = "1.1", features = ["std"] }
+paste = "1.0"
+rug = { version = "1.19", default-features = false, features = ["integer", "num-traits"] }
+smallvec = { version = "1.10", features = ["const_generics", "const_new", "may_dangle", "specialization", "union", "write"] }
+static_assertions = "1.1"
+strum = { version = "0.24", features = ["derive"] }
 
 [profile.release]
 lto = true
