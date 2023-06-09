@@ -11,7 +11,7 @@
 //! # Syntax
 //!
 //! GrassMudHorse uses [草 “grass”](Token::G), [泥 “mud”](Token::M), and
-//! [马 “horse”](Token::H) for [`S`](ws::Token::S), [`T`][ws::Token::T], and
+//! [马 “horse”](Token::H) for [`S`](ws::Token::S), [`T`](ws::Token::T), and
 //! [`L`](ws::Token::L) tokens, respectively, and adds two more tokens:
 //! [河 “river”](Token::R) and [蟹 “crab”](Token::C). It extends the grammar by
 //! allowing [`end`](crate::ws::inst::Inst::End) to be written equivalently as

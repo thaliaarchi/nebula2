@@ -2,7 +2,7 @@
 
 ## Whitespace
 
-and will support all but the most malformed Whitespace programs. This means it
+Nebula 2 will support all but the most malformed Whitespace programs.
 
 ### Syntaxes
 
