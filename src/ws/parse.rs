@@ -10,7 +10,6 @@ use std::iter::FusedIterator;
 use std::sync::LazyLock;
 
 use bitvec::vec::BitVec;
-use smallvec::SmallVec;
 
 use crate::syntax::{PrefixError, PrefixTable, TokenSeq, Tokens};
 use crate::text::EncodingError;
@@ -35,7 +34,7 @@ pub struct Parser<'a, L> {
 pub enum ParseError {
     EncodingError(EncodingError, Vec<Token>),
     UnknownOpcode(TokenSeq<Token>),
-    IncompleteInst(TokenSeq<Token>, SmallVec<[Opcode; 16]>),
+    IncompleteInst(TokenSeq<Token>, Vec<Opcode>),
     UnterminatedArg(Opcode, BitVec),
 }
 

@@ -9,8 +9,6 @@
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 
-use smallvec::{smallvec, SmallVec};
-
 use crate::syntax::{TokenSeq, VariantIndex};
 use crate::text::EncodingError;
 
@@ -23,20 +21,20 @@ pub struct PrefixTable<T, O> {
 #[derive(Clone, Debug)]
 pub enum PrefixEntry<O> {
     Terminal(O),
-    Prefix(SmallVec<[O; 16]>),
+    Prefix(Vec<O>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConflictError<T: VariantIndex, O> {
     prefix: TokenSeq<T>,
-    opcodes: SmallVec<[O; 16]>,
+    opcodes: Vec<O>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PrefixError<T: VariantIndex, O> {
     EncodingError(EncodingError, TokenSeq<T>),
     UnknownOpcode(TokenSeq<T>),
-    IncompleteOpcode(TokenSeq<T>, SmallVec<[O; 16]>),
+    IncompleteOpcode(TokenSeq<T>, Vec<O>),
 }
 
 impl<T, O> PrefixTable<T, O>
@@ -85,17 +83,17 @@ where
             let entry = self.get_mut(seq);
             match entry {
                 Some(PrefixEntry::Terminal(terminal)) => {
-                    return Err(ConflictError::new(seq, smallvec![*terminal, opcode]));
+                    return Err(ConflictError::new(seq, vec![*terminal, opcode]));
                 }
                 Some(PrefixEntry::Prefix(opcodes)) => opcodes.push(opcode),
-                None => *entry = Some(PrefixEntry::Prefix(smallvec![opcode])),
+                None => *entry = Some(PrefixEntry::Prefix(vec![opcode])),
             }
             seq.push(tok);
         }
         let entry = self.get_mut(seq);
         match entry {
             Some(PrefixEntry::Terminal(terminal)) => {
-                return Err(ConflictError::new(seq, smallvec![*terminal, opcode]));
+                return Err(ConflictError::new(seq, vec![*terminal, opcode]));
             }
             Some(PrefixEntry::Prefix(opcodes)) => {
                 let mut opcodes = opcodes.clone();
@@ -135,7 +133,7 @@ where
                     let prefix = match self.get(seq) {
                         Some(PrefixEntry::Terminal(opcode)) => return Some(Ok(*opcode)),
                         Some(PrefixEntry::Prefix(opcodes)) => opcodes.clone(),
-                        None => SmallVec::new(),
+                        None => Vec::new(),
                     };
                     return Some(Err(PrefixError::IncompleteOpcode(seq, prefix)));
                 }
@@ -200,7 +198,7 @@ where
 impl<T: VariantIndex, O> ConflictError<T, O> {
     #[inline]
     #[must_use]
-    const fn new(prefix: TokenSeq<T>, opcodes: SmallVec<[O; 16]>) -> Self {
+    const fn new(prefix: TokenSeq<T>, opcodes: Vec<O>) -> Self {
         ConflictError { prefix, opcodes }
     }
 }
@@ -210,32 +208,4 @@ pub trait Tokens {
 
     #[must_use]
     fn tokens(&self) -> &'static [Self::Token];
-}
-
-#[cfg(test)]
-mod tests {
-    use std::mem::size_of;
-
-    use static_assertions::{assert_eq_size, const_assert};
-
-    use super::*;
-    use crate::ws::inst::Opcode;
-
-    #[test]
-    fn optimal_size() {
-        #[allow(dead_code)]
-        enum PrefixEntryOf<T, P> {
-            Terminal(T),
-            Prefix(P),
-        }
-
-        assert_eq_size!(
-            PrefixEntry<Opcode>,
-            Option<PrefixEntry<Opcode>>,
-            PrefixEntryOf<Opcode, Vec<Opcode>>,
-            PrefixEntryOf<Opcode, SmallVec<[Opcode; 16]>>,
-        );
-        assert_eq_size!(Vec<Opcode>, SmallVec<[Opcode; 16]>);
-        const_assert!(size_of::<SmallVec<[Opcode; 16]>>() < size_of::<SmallVec<[Opcode; 17]>>());
-    }
 }
