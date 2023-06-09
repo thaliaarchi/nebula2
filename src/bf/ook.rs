@@ -75,7 +75,7 @@ pub static TABLE: LazyLock<PrefixTable<Punct, Inst>> = LazyLock::new(|| {
     table
 });
 
-impl const Tokens for Inst {
+impl Tokens for Inst {
     type Token = Punct;
 
     #[inline]
@@ -95,13 +95,13 @@ impl const Tokens for Inst {
     }
 }
 
-impl const From<bf::Inst> for Inst {
+impl From<bf::Inst> for Inst {
     fn from(inst: bf::Inst) -> Self {
         Inst::Bf(inst)
     }
 }
 
-impl const VariantIndex for Punct {
+impl VariantIndex for Punct {
     const COUNT: u32 = 3;
     #[inline]
     fn variant(index: u32) -> Self {
@@ -113,7 +113,7 @@ impl const VariantIndex for Punct {
     }
 }
 
-impl const VariantIndex for Inst {
+impl VariantIndex for Inst {
     const COUNT: u32 = 9;
     #[inline]
     fn variant(index: u32) -> Self {

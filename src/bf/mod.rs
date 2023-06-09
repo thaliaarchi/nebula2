@@ -51,7 +51,7 @@ pub enum InstExt {
     Debug,
 }
 
-impl const VariantIndex for Inst {
+impl VariantIndex for Inst {
     const COUNT: u32 = 8;
     #[inline]
     fn variant(index: u32) -> Self {
@@ -63,7 +63,7 @@ impl const VariantIndex for Inst {
     }
 }
 
-impl const VariantIndex for InstExt {
+impl VariantIndex for InstExt {
     const COUNT: u32 = 9;
     #[inline]
     fn variant(index: u32) -> Self {

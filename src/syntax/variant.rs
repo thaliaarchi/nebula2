@@ -39,7 +39,7 @@ pub trait VariantIndex {
     }
 }
 
-impl const VariantIndex for ! {
+impl VariantIndex for ! {
     const COUNT: u32 = 0;
     #[inline]
     fn variant(_index: u32) -> Self {
@@ -122,9 +122,9 @@ impl<T: VariantIndex> ExactSizeIterator for VariantRange<T> {
     }
 }
 
-impl<T: VariantIndex> const FusedIterator for VariantRange<T> {}
+impl<T: VariantIndex> FusedIterator for VariantRange<T> {}
 
-impl<T: VariantIndex> const Default for VariantRange<T> {
+impl<T: VariantIndex> Default for VariantRange<T> {
     #[inline]
     fn default() -> Self {
         VariantRange {
@@ -183,7 +183,7 @@ mod tests {
         enum E {
             V,
         }
-        impl const VariantIndex for E {
+        impl VariantIndex for E {
             const COUNT: u32 = 1;
             fn variant(_index: u32) -> Self {
                 E::V

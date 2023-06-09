@@ -33,7 +33,7 @@ pub enum Token {
     L,
 }
 
-impl const VariantIndex for Token {
+impl VariantIndex for Token {
     const COUNT: u32 = 3;
     #[inline]
     fn variant(index: u32) -> Self {

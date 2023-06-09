@@ -122,7 +122,7 @@ impl Mapping {
     }
 }
 
-impl const Default for Mapping {
+impl Default for Mapping {
     #[inline]
     fn default() -> Self {
         Mapping {

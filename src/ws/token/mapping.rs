@@ -58,14 +58,14 @@ impl Mapping<u8> {
     pub const STL: Self = Mapping { s: b'S', t: b'T', l: b'L' };
 }
 
-impl const Default for Mapping<char> {
+impl Default for Mapping<char> {
     #[inline]
     fn default() -> Self {
         Mapping { s: ' ', t: '\t', l: '\n' }
     }
 }
 
-impl const Default for Mapping<u8> {
+impl Default for Mapping<u8> {
     #[inline]
     fn default() -> Self {
         Mapping { s: b' ', t: b'\t', l: b'\n' }
@@ -89,9 +89,9 @@ impl<I, T> MappingLexer<I, T> {
 impl<'a> MappingLexer<Utf8Iterator<'a>, char> {
     #[inline]
     #[must_use]
-    pub const fn new_utf8<B>(src: &'a B, map: Mapping<char>, error_once: bool) -> Self
+    pub fn new_utf8<B>(src: &'a B, map: Mapping<char>, error_once: bool) -> Self
     where
-        B: ~const AsRef<[u8]> + ?Sized,
+        B: AsRef<[u8]> + ?Sized,
     {
         Self::new(Utf8Iterator::new(src, error_once), map)
     }
@@ -100,9 +100,9 @@ impl<'a> MappingLexer<Utf8Iterator<'a>, char> {
 impl<'a> MappingLexer<ByteIterator<'a>, u8> {
     #[inline]
     #[must_use]
-    pub const fn new_bytes<B>(src: &'a B, map: Mapping<u8>) -> Self
+    pub fn new_bytes<B>(src: &'a B, map: Mapping<u8>) -> Self
     where
-        B: ~const AsRef<[u8]> + ?Sized,
+        B: AsRef<[u8]> + ?Sized,
     {
         Self::new(ByteIterator::new(src), map)
     }
@@ -130,7 +130,7 @@ where
     }
 }
 
-impl<I, T> const FusedIterator for MappingLexer<I, T>
+impl<I, T> FusedIterator for MappingLexer<I, T>
 where
     I: Iterator<Item = Result<T, EncodingError>> + FusedIterator,
     T: Eq,
@@ -190,9 +190,9 @@ pub struct BytesMappingLexer<'a> {
 impl<'a> BytesMappingLexer<'a> {
     #[inline]
     #[must_use]
-    pub const fn new<B>(src: &'a B, map: BytesMapping) -> Self
+    pub fn new<B>(src: &'a B, map: BytesMapping) -> Self
     where
-        B: ~const AsRef<[u8]> + ?Sized,
+        B: AsRef<[u8]> + ?Sized,
     {
         BytesMappingLexer {
             src: src.as_ref(),
@@ -217,7 +217,7 @@ impl Iterator for BytesMappingLexer<'_> {
     }
 }
 
-impl const FusedIterator for BytesMappingLexer<'_> {}
+impl FusedIterator for BytesMappingLexer<'_> {}
 
 #[must_use]
 pub fn lex_mapping<'a>(
@@ -243,14 +243,14 @@ pub fn lex_mapping<'a>(
         {
             let map = Mapping::new(s_ch, t_ch, l_ch)?;
             let iter = Utf8Iterator::new(src, error_once);
-            return Some(box MappingLexer::new(iter, map));
+            return Some(Box::new(MappingLexer::new(iter, map)));
         }
         // TODO: Handle invalid UTF-8 in BytesMappingLexer case
     } else if s.len() == 1 && t.len() == 1 && l.len() == 1 {
         let map = Mapping::new(s[0], t[0], l[0])?;
         let iter = ByteIterator::new(src);
-        return Some(box MappingLexer::new(iter, map));
+        return Some(Box::new(MappingLexer::new(iter, map)));
     }
     let map = BytesMapping::new(s, t, l)?;
-    Some(box BytesMappingLexer::new(src, map))
+    Some(Box::new(BytesMappingLexer::new(src, map)))
 }

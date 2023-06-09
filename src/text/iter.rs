@@ -27,9 +27,9 @@ pub struct Utf8Iterator<'a> {
 impl<'a> Utf8Iterator<'a> {
     #[inline]
     #[must_use]
-    pub const fn new<B>(src: &'a B, error_once: bool) -> Self
+    pub fn new<B>(src: &'a B, error_once: bool) -> Self
     where
-        B: ~const AsRef<[u8]> + ?Sized,
+        B: AsRef<[u8]> + ?Sized,
     {
         Utf8Iterator {
             src: src.as_ref(),
@@ -81,7 +81,7 @@ impl Iterator for Utf8Iterator<'_> {
     }
 }
 
-impl const FusedIterator for Utf8Iterator<'_> {}
+impl FusedIterator for Utf8Iterator<'_> {}
 
 #[derive(Clone, Debug)]
 pub struct ByteIterator<'a> {
@@ -92,7 +92,7 @@ pub struct ByteIterator<'a> {
 impl<'a> ByteIterator<'a> {
     #[inline]
     #[must_use]
-    pub const fn new<B: ~const AsRef<[u8]> + ?Sized>(src: &'a B) -> Self {
+    pub fn new<B: AsRef<[u8]> + ?Sized>(src: &'a B) -> Self {
         ByteIterator { src: src.as_ref(), offset: 0 }
     }
 
@@ -116,7 +116,7 @@ impl Iterator for ByteIterator<'_> {
     }
 }
 
-impl const FusedIterator for ByteIterator<'_> {}
+impl FusedIterator for ByteIterator<'_> {}
 
 #[cfg(test)]
 mod tests {

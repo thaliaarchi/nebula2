@@ -6,8 +6,6 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
-#![feature(box_syntax)]
-
 use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
@@ -70,12 +68,14 @@ fn parse(program: ProgramOptions) -> Parser<'static, Box<dyn Lexer>> {
     let src = fs::read(&program.filename).unwrap();
     let ext = program.filename.extension().and_then(OsStr::to_str);
     let lex: Box<dyn Lexer> = if ext == Some("wsx") {
-        box bit_unpack_dynamic(&src, program.bit_order)
-            .into_iter()
-            .map(Ok)
+        Box::new(
+            bit_unpack_dynamic(&src, program.bit_order)
+                .into_iter()
+                .map(Ok),
+        )
     } else {
         // TODO: Avoid leaking
-        let src: &'static Vec<u8> = Box::leak(box src);
+        let src: &'static Vec<u8> = Box::leak(Box::new(src));
         if program.mapping_s != None || program.mapping_t != None || program.mapping_l != None {
             lex_mapping(
                 src,
@@ -87,9 +87,9 @@ fn parse(program: ProgramOptions) -> Parser<'static, Box<dyn Lexer>> {
             )
             .expect("invalid mapping")
         } else if program.ascii {
-            box MappingLexer::new_bytes(src, Mapping::default())
+            Box::new(MappingLexer::new_bytes(src, Mapping::default()))
         } else {
-            box MappingLexer::new_utf8(src, Mapping::default(), true)
+            Box::new(MappingLexer::new_utf8(src, Mapping::default(), true))
         }
     };
     Parser::new(lex)

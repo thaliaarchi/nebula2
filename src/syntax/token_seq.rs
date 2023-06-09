@@ -48,7 +48,10 @@ pub struct TokenSeq<T> {
 }
 
 impl<T: VariantIndex> TokenSeq<T> {
-    pub const MAX: TokenSeq<T> = TokenSeq::from(u32::MAX);
+    pub const MAX: TokenSeq<T> = TokenSeq {
+        inner: u32::MAX,
+        elem: PhantomData,
+    };
 
     #[inline]
     #[must_use]
@@ -109,14 +112,14 @@ impl<T: VariantIndex> TokenSeq<T> {
     }
 }
 
-impl<T> const From<u32> for TokenSeq<T> {
+impl<T> From<u32> for TokenSeq<T> {
     #[inline]
     fn from(seq: u32) -> Self {
         TokenSeq { inner: seq, elem: PhantomData }
     }
 }
 
-impl<T> const From<usize> for TokenSeq<T> {
+impl<T> From<usize> for TokenSeq<T> {
     #[inline]
     fn from(seq: usize) -> Self {
         debug_assert!(seq < u32::MAX as usize);
@@ -165,7 +168,7 @@ impl<T: Debug + VariantIndex> Debug for TokenSeq<T> {
 }
 
 // Avoid extra bounds for T from derive
-impl<T> const Clone for TokenSeq<T> {
+impl<T> Clone for TokenSeq<T> {
     fn clone(&self) -> Self {
         TokenSeq {
             inner: self.inner,
@@ -173,18 +176,18 @@ impl<T> const Clone for TokenSeq<T> {
         }
     }
 }
-impl<T> const Copy for TokenSeq<T> {}
-impl<T: VariantIndex> const Default for TokenSeq<T> {
+impl<T> Copy for TokenSeq<T> {}
+impl<T: VariantIndex> Default for TokenSeq<T> {
     fn default() -> Self {
         TokenSeq::new()
     }
 }
-impl<T> const PartialEq for TokenSeq<T> {
+impl<T> PartialEq for TokenSeq<T> {
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
-impl<T> const Eq for TokenSeq<T> {}
+impl<T> Eq for TokenSeq<T> {}
 impl<T> PartialOrd for TokenSeq<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.inner.partial_cmp(&other.inner)

@@ -114,7 +114,7 @@ impl<L: Lexer> Iterator for Parser<'_, L> {
     }
 }
 
-impl<L: Lexer + FusedIterator> const FusedIterator for Parser<'_, L> {}
+impl<L: Lexer + FusedIterator> FusedIterator for Parser<'_, L> {}
 
 impl From<PrefixError<Token, Opcode>> for ParseError {
     fn from(err: PrefixError<Token, Opcode>) -> Self {

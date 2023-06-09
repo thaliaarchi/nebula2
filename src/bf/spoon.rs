@@ -91,7 +91,7 @@ impl Inst {
     }
 }
 
-impl const Tokens for Inst {
+impl Tokens for Inst {
     type Token = Token;
 
     #[inline]
@@ -112,13 +112,13 @@ impl const Tokens for Inst {
     }
 }
 
-impl const From<bf::Inst> for Inst {
+impl From<bf::Inst> for Inst {
     fn from(inst: bf::Inst) -> Self {
         Inst::Bf(inst)
     }
 }
 
-impl const VariantIndex for Token {
+impl VariantIndex for Token {
     const COUNT: u32 = 2;
     #[inline]
     fn variant(index: u32) -> Self {
@@ -130,7 +130,7 @@ impl const VariantIndex for Token {
     }
 }
 
-impl const VariantIndex for Inst {
+impl VariantIndex for Inst {
     const COUNT: u32 = 10;
     #[inline]
     fn variant(index: u32) -> Self {

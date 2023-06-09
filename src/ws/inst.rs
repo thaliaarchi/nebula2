@@ -105,7 +105,7 @@ macro_rules! insts {
             }
         }
 
-        impl const Tokens for Opcode {
+        impl Tokens for Opcode {
             type Token = Token;
 
             #[inline]
@@ -116,7 +116,7 @@ macro_rules! insts {
             }
         }
 
-        impl const From<Opcode> for Inst<(), ()> {
+        impl From<Opcode> for Inst<(), ()> {
             #[inline]
             fn from(opcode: Opcode) -> Self {
                 match opcode {
@@ -125,7 +125,7 @@ macro_rules! insts {
             }
         }
 
-        impl const VariantIndex for Opcode {
+        impl VariantIndex for Opcode {
             const COUNT: u32 = count!($($opcode)+);
             #[inline]
             fn variant(index: u32) -> Self {
@@ -201,14 +201,14 @@ impl<I1, L1> Inst<I1, L1> {
     }
 }
 
-impl<I, L, E: Into<InstError>> const From<E> for Inst<I, L> {
+impl<I, L, E: Into<InstError>> From<E> for Inst<I, L> {
     #[inline]
     fn from(err: E) -> Self {
         Inst::Error(err.into())
     }
 }
 
-impl const From<ParseError> for InstError {
+impl From<ParseError> for InstError {
     #[inline]
     fn from(err: ParseError) -> Self {
         InstError::ParseError(err)

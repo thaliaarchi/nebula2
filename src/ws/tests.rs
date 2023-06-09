@@ -109,11 +109,17 @@ fn parse() {
 #[test]
 fn parse_dyn() {
     let lexers: [Box<dyn Lexer>; 3] = [
-        box MappingLexer::new_utf8(TUTORIAL_STL, Mapping::<char>::STL, true),
-        box MappingLexer::new_bytes(TUTORIAL_STL, Mapping::<u8>::STL),
-        box bit_unpack_padded::<u8, Msb0>(TUTORIAL_BITS)
-            .into_iter()
-            .map(Ok),
+        Box::new(MappingLexer::new_utf8(
+            TUTORIAL_STL,
+            Mapping::<char>::STL,
+            true,
+        )),
+        Box::new(MappingLexer::new_bytes(TUTORIAL_STL, Mapping::<u8>::STL)),
+        Box::new(
+            bit_unpack_padded::<u8, Msb0>(TUTORIAL_BITS)
+                .into_iter()
+                .map(Ok),
+        ),
     ];
     for lex in lexers {
         let parser = Parser::new(lex);

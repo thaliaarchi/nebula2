@@ -33,14 +33,14 @@ macro_rules! id_index(
         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub struct $Id(pub $Int);
 
-        impl const From<usize> for $Id {
+        impl  From<usize> for $Id {
             #[inline]
             fn from(id: usize) -> Self {
                 $Id(id as u32)
             }
         }
 
-        impl const From<$Id> for usize {
+        impl  From<$Id> for usize {
             #[inline]
             fn from(id: $Id) -> Self {
                 id.0 as usize
