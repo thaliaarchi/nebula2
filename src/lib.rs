@@ -6,19 +6,8 @@
 // later version. You should have received a copy of the GNU Lesser General
 // Public License along with Nebula 2. If not, see http://www.gnu.org/licenses/.
 
+// Nightly features
 #![feature(
-    box_patterns,
-    concat_bytes,
-    const_array_into_iter_constructors,
-    const_for,
-    const_intoiterator_identity,
-    const_mut_refs,
-    const_option,
-    const_option_ext,
-    const_trait_impl,
-    core_intrinsics,
-    if_let_guard,
-    inline_const,
     lazy_cell,
     let_chains,
     map_try_insert,
@@ -26,6 +15,9 @@
     split_array,
     trait_alias
 )]
+// Unstable features
+#![feature(core_intrinsics)]
+// Clippy lints
 #![warn(clippy::pedantic)]
 #![allow(
     clippy::cast_lossless,
